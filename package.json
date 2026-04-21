@@ -12,7 +12,8 @@
     "start:api": "node dist/server.js",
     "start:worker": "node dist/worker.js",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "twilio:ping": "tsx scripts/sendTestWhatsApp.ts"
   },
   "dependencies": {
     "bullmq": "^5.58.0",
