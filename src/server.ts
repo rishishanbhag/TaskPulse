@@ -7,11 +7,13 @@ import pinoHttp from 'pino-http';
 import { connectDb } from '@/config/db.js';
 import { env } from '@/config/env.js';
 import { logger } from '@/config/logger.js';
+import { verifyTwilioConnected } from '@/config/twilio.js';
 import { errorMiddleware } from '@/middlewares/error.js';
 import { router } from '@/routes/index.js';
 
 async function main() {
   await connectDb();
+  await verifyTwilioConnected();
 
   const app = express();
 
@@ -34,7 +36,7 @@ async function main() {
   app.use(errorMiddleware);
 
   app.listen(env.PORT, () => {
-    logger.info({ port: env.PORT }, 'API listening');
+    console.log('Server started');
   });
 }
 
