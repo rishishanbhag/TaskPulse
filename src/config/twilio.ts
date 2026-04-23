@@ -6,13 +6,15 @@ import { logger } from '@/config/logger.js';
 export const twilioClient = Twilio(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN);
 export const twilioWhatsAppFrom = env.TWILIO_WHATSAPP_FROM;
 
-const sid = env.TWILIO_ACCOUNT_SID;
-logger.info(
-  {
-    component: 'twilio',
-    accountSidPrefix: sid.length >= 6 ? sid.slice(0, 6) : sid,
-    from: twilioWhatsAppFrom,
-  },
-  'Twilio client initialized',
-);
+export async function verifyTwilioConnected() {
+  try {
+    // This performs a real authenticated request, so we only log success when
+    // the credentials/network are actually working.
+    await twilioClient.api.accounts(env.TWILIO_ACCOUNT_SID).fetch();
+    console.log('Twilio connected');
+  } catch (err) {
+    logger.error({ err }, 'Twilio connection check failed');
+    throw err;
+  }
+}
 

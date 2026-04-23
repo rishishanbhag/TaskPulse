@@ -12,6 +12,6 @@ export async function connectDb() {
 
   await mongoose.connect(env.MONGO_URI);
   isConnected = true;
-  logger.info('MongoDB connected');
+  console.log('Mongo started');
 }
 
