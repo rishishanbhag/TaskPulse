@@ -4,6 +4,8 @@ import { AssignmentModel, AssignmentStatus } from '@/models/Assignment.js';
 import { MessageModel } from '@/models/Message.js';
 import { TaskModel, TaskStatus } from '@/models/Task.js';
 import { UserModel } from '@/models/User.js';
+import { delKeys } from '@/services/cache.js';
+import { publishEvent } from '@/services/events.js';
 import { asyncHandler } from '@/utils/asyncHandler.js';
 import { normalizeTwilioFrom } from '@/utils/phone.js';
 
@@ -33,6 +35,23 @@ export const webhookController = {
           { _id: msg.assignmentId },
           { $set: { status: newAssignmentStatus, updatedAt: new Date() } },
         );
+
+        const taskId = String(msg.taskId);
+        const userId = String(msg.userId);
+        await delKeys([
+          `tp:v1:task:${taskId}:assignments`,
+          `tp:v1:task:${taskId}:detail`,
+          'tp:v1:tasks:list:admin',
+          `tp:v1:tasks:list:user:${userId}`,
+        ]);
+
+        await publishEvent({
+          type: 'assignment.updated',
+          taskId,
+          assignmentId: String(msg.assignmentId),
+          userId,
+          status: newAssignmentStatus,
+        });
       }
     }
 
@@ -80,6 +99,22 @@ export const webhookController = {
     assignment.updatedAt = new Date();
     await assignment.save();
 
+    const taskIdStr = String(assignment.taskId);
+    await delKeys([
+      `tp:v1:task:${taskIdStr}:assignments`,
+      `tp:v1:task:${taskIdStr}:detail`,
+      'tp:v1:tasks:list:admin',
+      `tp:v1:tasks:list:user:${String(user._id)}`,
+    ]);
+
+    await publishEvent({
+      type: 'assignment.updated',
+      taskId: taskIdStr,
+      assignmentId: String(assignment._id),
+      userId: String(user._id),
+      status: AssignmentStatus.COMPLETED,
+    });
+
     const remaining = await AssignmentModel.countDocuments({
       taskId: assignment.taskId,
       status: { $ne: AssignmentStatus.COMPLETED },
@@ -87,6 +122,11 @@ export const webhookController = {
 
     if (remaining === 0) {
       await TaskModel.updateOne({ _id: assignment.taskId }, { $set: { status: TaskStatus.COMPLETED } });
+      await delKeys([`tp:v1:task:${taskIdStr}:detail`]);
+
+      const task = await TaskModel.findById(assignment.taskId).select('assignedTo').lean();
+      const userIds = ((task?.assignedTo as any[]) ?? []).map(String);
+      await publishEvent({ type: 'task.completed', taskId: taskIdStr, userIds });
     }
 
     twiml.message('Marked as completed. Thank you!');
