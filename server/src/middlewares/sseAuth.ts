@@ -4,23 +4,19 @@ import { UserModel } from '@/models/User.js';
 import { cached } from '@/services/cache.js';
 import { verifyJwt } from '@/utils/jwt.js';
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: { id: string; name: string; email: string; phone: string | null; role: 'admin' | 'member' };
-    }
-  }
-}
-
-export const requireAuth: RequestHandler = async (req, res, next) => {
+export const requireAuthForSse: RequestHandler = async (req, res, next) => {
   try {
-    const auth = req.headers.authorization ?? '';
-    const [, token] = auth.split(' ');
+    const token =
+      (typeof req.query.token === 'string' ? req.query.token : null) ??
+      (() => {
+        const auth = req.headers.authorization ?? '';
+        const [, t] = auth.split(' ');
+        return t || null;
+      })();
 
-    if (!token) return res.status(401).json({ error: { message: 'Missing bearer token' } });
+    if (!token) return res.status(401).json({ error: { message: 'Missing token' } });
 
     const payload = verifyJwt(token);
-
     const cacheKey = `tp:v1:user:${payload.sub}`;
     const user = await cached(cacheKey, 300, async () => {
       return UserModel.findById(payload.sub).select('_id role name email phone').lean();
@@ -34,6 +30,7 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
       phone: user.phone ?? null,
       role: user.role as 'admin' | 'member',
     };
+
     next();
   } catch {
     res.status(401).json({ error: { message: 'Invalid token' } });
