@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Globe, MessageCircle } from 'lucide-react';
 
@@ -59,6 +60,13 @@ export default function HeroSection() {
           <Globe className="w-4 h-4" />
           Self-host
         </button>
+
+        <Link
+          to="/login"
+          className="flex items-center justify-center gap-2 w-full px-6 py-3 bg-[#0f172a] text-white text-sm font-semibold rounded-md hover:opacity-95 transition-all shadow-sm"
+        >
+          Sign in
+        </Link>
       </motion.div>
     </section>
   );
