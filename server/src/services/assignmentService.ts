@@ -1,6 +1,12 @@
 import mongoose from 'mongoose';
 
 import { AssignmentModel, AssignmentStatus } from '@/models/Assignment.js';
+import { cached } from '@/services/cache.js';
+
+const TTL_ASSIGNMENTS_SECONDS = 30;
+function cacheKeyTaskAssignments(taskId: string) {
+  return `tp:v1:task:${taskId}:assignments`;
+}
 
 export async function upsertAssignmentsForTask(taskId: mongoose.Types.ObjectId, userIds: string[]) {
   const toObjectId = (id: string) => new mongoose.Types.ObjectId(id);
@@ -24,7 +30,9 @@ export async function upsertAssignmentsForTask(taskId: mongoose.Types.ObjectId, 
 }
 
 export async function listAssignmentsForTask(taskId: string) {
-  return AssignmentModel.find({ taskId }).lean();
+  return cached(cacheKeyTaskAssignments(taskId), TTL_ASSIGNMENTS_SECONDS, async () => {
+    return AssignmentModel.find({ taskId }).lean();
+  });
 }
 
 export async function findLatestOpenAssignmentForUser(userId: string) {

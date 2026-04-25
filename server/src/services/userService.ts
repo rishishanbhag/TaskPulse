@@ -1,7 +1,38 @@
 import { UserModel, type UserDoc } from '@/models/User.js';
+import { cached, delKeys } from '@/services/cache.js';
 
 export async function getUserByGoogleId(googleId: string) {
   return UserModel.findOne({ googleId });
+}
+
+async function listUsersQuery(input: { role?: string; q?: string }) {
+  const query: Record<string, unknown> = {};
+
+  if (input.role === 'admin' || input.role === 'member') {
+    query.role = input.role;
+  }
+
+  if (input.q && input.q.trim()) {
+    const q = input.q.trim();
+    query.$or = [{ name: { $regex: q, $options: 'i' } }, { email: { $regex: q, $options: 'i' } }];
+  }
+
+  const users = await UserModel.find(query).sort({ createdAt: -1 }).lean();
+  return users.map((u) => ({
+    id: String((u as any)._id),
+    name: (u as any).name,
+    email: (u as any).email,
+    phone: (u as any).phone ?? null,
+    role: (u as any).role as 'admin' | 'member',
+  }));
+}
+
+export async function listUsers(input: { role?: string; q?: string }) {
+  const isMembersList = input.role === 'member' && (!input.q || !input.q.trim());
+  if (isMembersList) {
+    return cached('tp:v1:users:members', 300, async () => listUsersQuery({ role: 'member', q: undefined }));
+  }
+  return listUsersQuery(input);
 }
 
 /** Dev/testing only: stable googleId per email so OAuth and dev-login do not collide. */
@@ -51,6 +82,10 @@ export async function upsertGoogleUser(input: {
 }
 
 export async function updateUserPhone(userId: string, phone: string) {
-  return UserModel.findByIdAndUpdate(userId, { $set: { phone } }, { new: true });
+  const updated = await UserModel.findByIdAndUpdate(userId, { $set: { phone } }, { new: true });
+  if (updated) {
+    await delKeys([`tp:v1:user:${userId}`, 'tp:v1:users:members']);
+  }
+  return updated;
 }
 
