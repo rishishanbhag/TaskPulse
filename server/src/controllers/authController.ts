@@ -4,6 +4,11 @@ import { asyncHandler } from '@/utils/asyncHandler.js';
 import { normalizeE164 } from '@/utils/phone.js';
 
 export const authController = {
+  me: asyncHandler(async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: { message: 'Unauthorized' } });
+    res.json({ user: req.user });
+  }),
+
   google: asyncHandler(async (req, res) => {
     const { idToken } = req.body as { idToken: string };
     const result = await loginWithGoogleIdToken(idToken);

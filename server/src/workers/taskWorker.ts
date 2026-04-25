@@ -8,6 +8,8 @@ import { MessageModel } from '@/models/Message.js';
 import { TaskModel, TaskStatus } from '@/models/Task.js';
 import { UserModel } from '@/models/User.js';
 import { JOB_SEND_TASK_NOTIFICATIONS } from '@/queue/queues.js';
+import { delKeys } from '@/services/cache.js';
+import { publishEvent } from '@/services/events.js';
 import { sendWhatsAppTaskMessage } from '@/services/twilioService.js';
 
 function buildTaskBody(task: { title: string; description: string; deadline?: Date | null }) {
@@ -50,6 +52,7 @@ export function initTaskWorker() {
       const usersById = new Map(users.map((u) => [String(u._id), u]));
 
       const body = buildTaskBody(task);
+      const taskIdStr = String(task._id);
 
       for (const assignment of pending) {
         const user = usersById.get(String(assignment.userId));
@@ -58,6 +61,19 @@ export function initTaskWorker() {
             { _id: assignment._id },
             { $set: { status: AssignmentStatus.FAILED, updatedAt: new Date() } },
           );
+          await delKeys([
+            `tp:v1:task:${taskIdStr}:assignments`,
+            `tp:v1:task:${taskIdStr}:detail`,
+            'tp:v1:tasks:list:admin',
+            `tp:v1:tasks:list:user:${String(assignment.userId)}`,
+          ]);
+          await publishEvent({
+            type: 'assignment.updated',
+            taskId: taskIdStr,
+            assignmentId: String(assignment._id),
+            userId: String(assignment.userId),
+            status: AssignmentStatus.FAILED,
+          });
           continue;
         }
 
@@ -72,6 +88,7 @@ export function initTaskWorker() {
             taskId: task._id,
             userId: user._id,
             assignmentId: assignment._id,
+            dedupeKey: result.sid,
             twilioSid: result.sid,
             status: result.status,
             body,
@@ -88,12 +105,38 @@ export function initTaskWorker() {
               },
             },
           );
+          await delKeys([
+            `tp:v1:task:${taskIdStr}:assignments`,
+            `tp:v1:task:${taskIdStr}:detail`,
+            'tp:v1:tasks:list:admin',
+            `tp:v1:tasks:list:user:${String(assignment.userId)}`,
+          ]);
+          await publishEvent({
+            type: 'assignment.updated',
+            taskId: taskIdStr,
+            assignmentId: String(assignment._id),
+            userId: String(assignment.userId),
+            status: AssignmentStatus.SENT,
+          });
         } catch (err) {
           log.error({ err, taskId: String(task._id), userId: String(user._id) }, 'Send failed');
           await AssignmentModel.updateOne(
             { _id: assignment._id },
             { $set: { status: AssignmentStatus.FAILED, updatedAt: new Date() } },
           );
+          await delKeys([
+            `tp:v1:task:${taskIdStr}:assignments`,
+            `tp:v1:task:${taskIdStr}:detail`,
+            'tp:v1:tasks:list:admin',
+            `tp:v1:tasks:list:user:${String(assignment.userId)}`,
+          ]);
+          await publishEvent({
+            type: 'assignment.updated',
+            taskId: taskIdStr,
+            assignmentId: String(assignment._id),
+            userId: String(assignment.userId),
+            status: AssignmentStatus.FAILED,
+          });
         }
       }
 
@@ -104,6 +147,7 @@ export function initTaskWorker() {
 
       if (remainingPending === 0) {
         await TaskModel.updateOne({ _id: task._id }, { $set: { status: TaskStatus.SENT } });
+        await delKeys([`tp:v1:task:${taskIdStr}:detail`, 'tp:v1:tasks:list:admin']);
       }
     },
     { connection: redis },

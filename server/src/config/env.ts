@@ -2,10 +2,12 @@ import 'dotenv/config';
 
 import { z } from 'zod';
 
-const envSchema = z.object({
+const envSchema = z
+  .object({
   PORT: z.coerce.number().int().positive().default(3000),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PUBLIC_URL: z.string().url(),
+  CLIENT_ORIGIN: z.string().url(),
 
   MONGO_URI: z.string().min(1),
   REDIS_URL: z.string().min(1),
@@ -27,7 +29,16 @@ const envSchema = z.object({
       return false;
     }, z.boolean())
     .default(false),
-});
+})
+  .superRefine((val, ctx) => {
+    if (val.NODE_ENV === 'production' && val.TWILIO_SKIP_SIGNATURE) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['TWILIO_SKIP_SIGNATURE'],
+        message: 'TWILIO_SKIP_SIGNATURE cannot be enabled in production',
+      });
+    }
+  });
 
 export const env = envSchema.parse(process.env);
 

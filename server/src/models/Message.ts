@@ -10,6 +10,11 @@ const messageSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    /**
+     * Some DBs already have a unique index on `dedupeKey`.
+     * Ensure we persist a non-null value to avoid duplicate key errors on `{ dedupeKey: null }`.
+     */
+    dedupeKey: { type: String, required: false, index: true },
     twilioSid: { type: String, required: false, index: true, unique: true, sparse: true },
     status: { type: String, required: true, trim: true, index: true },
     body: { type: String, required: true },

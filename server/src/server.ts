@@ -1,4 +1,5 @@
 import cors from 'cors';
+import { randomUUID } from 'node:crypto';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
@@ -17,9 +18,24 @@ async function main() {
 
   const app = express();
 
-  app.use((pinoHttp as any)({ logger }) as any);
+  app.use(
+    (pinoHttp as any)({
+      logger,
+      genReqId: (req: any, res: any) => {
+        const existing = req.headers['x-request-id'];
+        const id = typeof existing === 'string' && existing ? existing : randomUUID();
+        res.setHeader('x-request-id', id);
+        return id;
+      },
+    }) as any,
+  );
   app.use(helmet());
-  app.use(cors());
+  app.use(
+    cors({
+      origin: env.CLIENT_ORIGIN,
+      credentials: true,
+    }),
+  );
   app.use(
     rateLimit({
       windowMs: 60_000,
