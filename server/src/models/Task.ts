@@ -8,6 +8,13 @@ export const TaskStatus = {
   COMPLETED: 'COMPLETED',
 } as const;
 
+export const TaskPriority = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+  URGENT: 'URGENT',
+} as const;
+
 const taskSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
@@ -17,6 +24,13 @@ const taskSchema = new mongoose.Schema(
       required: true,
       enum: Object.values(TaskStatus),
       default: TaskStatus.DRAFT,
+      index: true,
+    },
+    priority: {
+      type: String,
+      required: true,
+      enum: Object.values(TaskPriority),
+      default: TaskPriority.MEDIUM,
       index: true,
     },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
