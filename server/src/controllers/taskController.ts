@@ -8,29 +8,35 @@ export const taskController = {
     if (!req.user) return res.status(401).json({ error: { message: 'Unauthorized' } });
     const body = req.body as {
       title: string;
-      description: string;
+      descriptionHtml: string;
+      groupId?: string;
       assignedTo: string[];
       priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
       deadline?: Date;
       scheduledAt?: Date;
     };
 
-    const task = await createTask({
-      title: body.title,
-      description: body.description,
-      assignedTo: body.assignedTo,
-      priority: body.priority,
-      deadline: body.deadline,
-      scheduledAt: body.scheduledAt,
-      createdBy: req.user.id,
-    });
+    const task = await createTask(
+      {
+        orgId: req.user.orgId,
+        groupId: body.groupId,
+        title: body.title,
+        descriptionHtml: body.descriptionHtml,
+        assignedTo: body.assignedTo,
+        priority: body.priority,
+        deadline: body.deadline,
+        scheduledAt: body.scheduledAt,
+        createdBy: req.user.id,
+      },
+      req.user,
+    );
 
     res.status(201).json({ task });
   }),
 
   approve: asyncHandler(async (req, res) => {
-    const taskId = req.params.id;
-    const task = await approveTask(taskId);
+    if (!req.user) return res.status(401).json({ error: { message: 'Unauthorized' } });
+    const task = await approveTask(req.params.id, req.user);
 
     const delay =
       task.scheduledAt && task.scheduledAt.getTime() > Date.now()
@@ -43,9 +49,9 @@ export const taskController = {
   }),
 
   reschedule: asyncHandler(async (req, res) => {
-    const taskId = req.params.id;
+    if (!req.user) return res.status(401).json({ error: { message: 'Unauthorized' } });
     const { scheduledAt } = req.body as { scheduledAt: Date };
-    const task = await rescheduleTask(taskId, scheduledAt);
+    const task = await rescheduleTask(req.params.id, scheduledAt, req.user);
 
     const delay = Math.max(0, scheduledAt.getTime() - Date.now());
     await rescheduleSendTaskNotifications(String(task._id), { delay });
@@ -66,8 +72,7 @@ export const taskController = {
     if (!req.user) return res.status(401).json({ error: { message: 'Unauthorized' } });
     const task = await getTaskForUser(req.params.id, req.user);
     if (!task) return res.status(404).json({ error: { message: 'Task not found' } });
-    const assignments = await listAssignmentsForTask(String((task as any)._id));
+    const assignments = await listAssignmentsForTask(req.user.orgId, String((task as any)._id));
     res.json({ task, assignments });
   }),
 };
-

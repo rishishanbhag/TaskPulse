@@ -7,8 +7,9 @@ export const userController = {
 
     const role = typeof req.query.role === 'string' ? req.query.role : undefined;
     const q = typeof req.query.q === 'string' ? req.query.q : undefined;
+    const groupId = typeof req.query.groupId === 'string' ? req.query.groupId : undefined;
 
-    const users = await listUsers({ role, q });
+    const users = await listUsers({ orgId: req.user.orgId, role, q, groupId });
     res.json({ users });
   }),
 };

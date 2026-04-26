@@ -1,4 +1,4 @@
-import { loginWithDevCredentials, loginWithGoogleIdToken } from '@/services/authService.js';
+import { loginWithDevEmail, loginWithGoogleIdToken } from '@/services/authService.js';
 import { updateUserPhone } from '@/services/userService.js';
 import { asyncHandler } from '@/utils/asyncHandler.js';
 import { normalizeE164 } from '@/utils/phone.js';
@@ -16,20 +16,15 @@ export const authController = {
   }),
 
   devLogin: asyncHandler(async (req, res) => {
-    const body = req.body as {
-      email: string;
-      name?: string;
-      role?: 'admin' | 'member';
-      phone?: string;
-    };
-    const result = await loginWithDevCredentials(body);
+    const { email } = req.body as { email: string };
+    const result = await loginWithDevEmail(email);
     res.json(result);
   }),
 
   updateMyPhone: asyncHandler(async (req, res) => {
     if (!req.user) return res.status(401).json({ error: { message: 'Unauthorized' } });
     const { phone } = req.body as { phone: string };
-    const updated = await updateUserPhone(req.user.id, normalizeE164(phone));
+    const updated = await updateUserPhone(req.user.orgId, req.user.id, normalizeE164(phone));
     if (!updated) return res.status(404).json({ error: { message: 'User not found' } });
     res.json({
       user: {
@@ -37,9 +32,9 @@ export const authController = {
         name: updated.name,
         email: updated.email,
         phone: updated.phone ?? null,
+        orgId: String((updated as any).orgId),
         role: updated.role,
       },
     });
   }),
 };
-

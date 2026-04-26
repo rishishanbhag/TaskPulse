@@ -1,14 +1,17 @@
 import Twilio from 'twilio';
+import mongoose from 'mongoose';
 
-import { AssignmentModel, AssignmentReplyType, AssignmentStatus } from '@/models/Assignment.js';
+import { AssignmentModel, AssignmentStatus } from '@/models/Assignment.js';
 import { MessageModel } from '@/models/Message.js';
 import { TaskModel, TaskStatus } from '@/models/Task.js';
 import { UserModel } from '@/models/User.js';
+import { applyAssignmentReply, openAssignmentStatuses } from '@/services/assignmentReplyService.js';
 import { delKeys } from '@/services/cache.js';
-import { publishEvent } from '@/services/events.js';
 import { parseInboundReply } from '@/services/replyParser.js';
 import { asyncHandler } from '@/utils/asyncHandler.js';
+import { cacheKeysForTaskMutations, invalidateTaskListsForOrg } from '@/services/taskService.js';
 import { normalizeTwilioFrom } from '@/utils/phone.js';
+import { publishEvent } from '@/services/events.js';
 
 function mapTwilioStatusToAssignment(status: string) {
   const s = status.toLowerCase();
@@ -16,6 +19,11 @@ function mapTwilioStatusToAssignment(status: string) {
   if (s === 'sent') return AssignmentStatus.SENT;
   if (s === 'failed' || s === 'undelivered') return AssignmentStatus.FAILED;
   return null;
+}
+
+async function invalidateCachesForTask(orgId: string, taskId: string) {
+  await delKeys([...cacheKeysForTaskMutations(orgId, taskId)]);
+  await invalidateTaskListsForOrg(orgId);
 }
 
 export const webhookController = {
@@ -39,15 +47,25 @@ export const webhookController = {
 
         const taskId = String(msg.taskId);
         const userId = String(msg.userId);
-        await delKeys([
-          `tp:v1:task:${taskId}:assignments`,
-          `tp:v1:task:${taskId}:detail`,
-          'tp:v1:tasks:list:admin',
-          `tp:v1:tasks:list:user:${userId}`,
-        ]);
+        let orgId = String((msg as any).orgId || '');
+        if (!orgId) {
+          const t = await TaskModel.findById(taskId).select('orgId').lean();
+          orgId = t ? String((t as any).orgId) : '';
+        }
+        if (orgId) {
+          await invalidateCachesForTask(orgId, taskId);
+        } else {
+          await delKeys([`tp:v1:task:${taskId}:assignments`, `tp:v1:task:${taskId}:detail`]);
+        }
+
+        const task = await TaskModel.findById(taskId).select('orgId groupId').lean();
+        const orgId2 = orgId || String((task as any)?.orgId);
+        const gid = (task as any)?.groupId ? String((task as any).groupId) : null;
 
         await publishEvent({
           type: 'assignment.updated',
+          orgId: orgId2,
+          groupId: gid,
           taskId,
           assignmentId: String(msg.assignmentId),
           userId,
@@ -79,10 +97,71 @@ export const webhookController = {
       return;
     }
 
-    const assignment = await AssignmentModel.findOne({
-      userId: user._id,
-      status: { $in: [AssignmentStatus.SENT, AssignmentStatus.DELIVERED, AssignmentStatus.PENDING] },
-    }).sort({ updatedAt: -1 });
+    const orgOid = new mongoose.Types.ObjectId(String((user as any).orgId));
+    const orgIdStr = String((user as any).orgId);
+    const userIdStr = String(user._id);
+
+    const now = new Date();
+    const parsed = parseInboundReply(body, now);
+
+    const openStatuses = openAssignmentStatuses();
+
+    // Resolve which assignment this message refers to
+    let assignment: InstanceType<typeof AssignmentModel> | null = null;
+    if (parsed.type !== 'UNKNOWN' && 'code' in parsed && (parsed as any).code) {
+      const code = (parsed as any).code as string;
+      const task = await TaskModel.findOne({ orgId: orgOid, shortCode: code }).lean();
+      if (!task) {
+        twiml.message(`No task with code ${code} in your organization.`);
+        res.type('text/xml').send(twiml.toString());
+        return;
+      }
+      assignment = await AssignmentModel.findOne({
+        orgId: orgOid,
+        userId: user._id,
+        taskId: task._id,
+        status: { $in: openStatuses },
+      });
+      if (!assignment) {
+        twiml.message(`No open assignment for you on ${code}.`);
+        res.type('text/xml').send(twiml.toString());
+        return;
+      }
+    } else {
+      const list = await AssignmentModel.find({
+        orgId: orgOid,
+        userId: user._id,
+        status: { $in: openStatuses },
+      })
+        .sort({ updatedAt: -1 })
+        .lean();
+
+      if (list.length === 0) {
+        twiml.message('No active assignment found.');
+        res.type('text/xml').send(twiml.toString());
+        return;
+      }
+      if (list.length > 1) {
+        const taskIds = list.map((a) => a.taskId);
+        const tasks = await TaskModel.find({ _id: { $in: taskIds } })
+          .select('title shortCode')
+          .lean();
+        const byT = new Map(tasks.map((t) => [String(t._id), t]));
+        const lines: string[] = [];
+        for (let i = 0; i < list.length; i++) {
+          const t = byT.get(String(list[i]!.taskId)) as { title: string; shortCode?: string } | undefined;
+          lines.push(`${i + 1}. ${t?.shortCode ?? '?'} — ${t?.title ?? 'Task'}`);
+        }
+        twiml.message(
+          `You have multiple open tasks. Include the code in your message, e.g. "DONE T-XXXXX":\n${lines.join(
+            '\n',
+          )}\n\nOr reply: DONE T-XXXXX`,
+        );
+        res.type('text/xml').send(twiml.toString());
+        return;
+      }
+      assignment = await AssignmentModel.findById(list[0]!._id);
+    }
 
     if (!assignment) {
       twiml.message('No active assignment found.');
@@ -90,84 +169,21 @@ export const webhookController = {
       return;
     }
 
-    const now = new Date();
-    const parsed = parseInboundReply(body, now);
-
-    assignment.lastReplyAt = now;
-    assignment.lastReplyBody = body.slice(0, 1000);
-
-    if (parsed.type === 'DONE') {
-      assignment.lastReplyType = AssignmentReplyType.DONE;
-      assignment.status = AssignmentStatus.COMPLETED;
-      assignment.updatedAt = now;
-      await assignment.save();
-    } else if (parsed.type === 'HELP') {
-      assignment.lastReplyType = AssignmentReplyType.HELP;
-      assignment.helpRequestedAt = now;
-      assignment.updatedAt = now;
-      await assignment.save();
-    } else if (parsed.type === 'DELAY') {
-      assignment.lastReplyType = AssignmentReplyType.DELAY;
-      if (parsed.until) assignment.delayRequestedUntil = parsed.until;
-      assignment.updatedAt = now;
-      await assignment.save();
-    } else {
-      assignment.lastReplyType = AssignmentReplyType.UNKNOWN;
-      assignment.updatedAt = now;
-      await assignment.save();
+    const task = await TaskModel.findById(assignment.taskId);
+    if (!task) {
+      twiml.message('Task not found.');
+      res.type('text/xml').send(twiml.toString());
+      return;
     }
 
-    const taskIdStr = String(assignment.taskId);
-    await delKeys([
-      `tp:v1:task:${taskIdStr}:assignments`,
-      `tp:v1:task:${taskIdStr}:detail`,
-      'tp:v1:tasks:list:admin',
-      `tp:v1:tasks:list:user:${String(user._id)}`,
-    ]);
-
-    const assignmentIdStr = String(assignment._id);
-    const userIdStr = String(user._id);
-
-    if (parsed.type === 'DONE') {
-      await publishEvent({
-        type: 'assignment.updated',
-        taskId: taskIdStr,
-        assignmentId: assignmentIdStr,
-        userId: userIdStr,
-        status: AssignmentStatus.COMPLETED,
-      });
-    } else if (parsed.type === 'HELP') {
-      await publishEvent({
-        type: 'assignment.help_requested',
-        taskId: taskIdStr,
-        assignmentId: assignmentIdStr,
-        userId: userIdStr,
-      });
-    } else if (parsed.type === 'DELAY') {
-      await publishEvent({
-        type: 'assignment.delay_requested',
-        taskId: taskIdStr,
-        assignmentId: assignmentIdStr,
-        userId: userIdStr,
-        ...(parsed.until ? { until: parsed.until.toISOString() } : {}),
-      });
-    }
-
-    if (parsed.type === 'DONE') {
-      const remaining = await AssignmentModel.countDocuments({
-        taskId: assignment.taskId,
-        status: { $ne: AssignmentStatus.COMPLETED },
-      });
-
-      if (remaining === 0) {
-        await TaskModel.updateOne({ _id: assignment.taskId }, { $set: { status: TaskStatus.COMPLETED } });
-        await delKeys([`tp:v1:task:${taskIdStr}:detail`]);
-
-        const task = await TaskModel.findById(assignment.taskId).select('assignedTo').lean();
-        const userIds = ((task?.assignedTo as any[]) ?? []).map(String);
-        await publishEvent({ type: 'task.completed', taskId: taskIdStr, userIds });
-      }
-    }
+    await applyAssignmentReply({
+      assignment,
+      task: task as any,
+      orgIdStr,
+      userIdStr,
+      parsed,
+      replyBody: body,
+    });
 
     if (parsed.type === 'DONE') {
       twiml.message('Marked as completed. Thank you!');
@@ -176,9 +192,10 @@ export const webhookController = {
     } else if (parsed.type === 'DELAY') {
       twiml.message('Noted. Delay request sent to your manager.');
     } else {
-      twiml.message('Reply DONE when finished. You can also reply HELP or DELAY 4h / DELAY 1d.');
+      twiml.message(
+        `Reply DONE ${(task as any).shortCode ? `${(task as any).shortCode} ` : ''}when finished. You can also send HELP or DELAY 4h.`,
+      );
     }
     res.type('text/xml').send(twiml.toString());
   }),
 };
-
