@@ -1,14 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { apiFetch, HttpError } from '@/lib/apiClient';
-
-export type User = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string | null;
-  role: 'admin' | 'member';
-};
+import type { User, UserRole } from '@/hooks/types';
 
 type AuthState = {
   token: string | null;
@@ -18,6 +11,7 @@ type AuthState = {
   setSession: (token: string, user: User) => void;
   logout: () => void;
   refreshMe: () => Promise<void>;
+  hasRole: (...roles: UserRole[]) => boolean;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -66,6 +60,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [setToken],
   );
 
+  const hasRole = useCallback(
+    (...roles: UserRole[]) => {
+      if (!user) return false;
+      return roles.includes(user.role);
+    },
+    [user],
+  );
+
   useEffect(() => {
     refreshMe()
       .catch(() => {
@@ -76,8 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<AuthState>(
-    () => ({ token, user, bootstrapped, setToken, setSession, logout, refreshMe }),
-    [token, user, bootstrapped, setToken, setSession, logout, refreshMe],
+    () => ({ token, user, bootstrapped, setToken, setSession, logout, refreshMe, hasRole }),
+    [token, user, bootstrapped, setToken, setSession, logout, refreshMe, hasRole],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -89,3 +91,4 @@ export function useAuth() {
   return ctx;
 }
 
+export type { User };

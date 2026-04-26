@@ -10,7 +10,8 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: async (input: {
       title: string;
-      description: string;
+      descriptionHtml: string;
+      groupId?: string;
       assignedTo: string[];
       priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
       deadline?: Date;
@@ -53,6 +54,56 @@ export function useRescheduleTask() {
       return res.task;
     },
     onSuccess: (_task, input) => {
+      qc.invalidateQueries({ queryKey: ['tasks', 'list'] });
+      qc.invalidateQueries({ queryKey: ['tasks', 'detail', input.taskId] });
+    },
+  });
+}
+
+export function useAssignmentMarkDone() {
+  const { token } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { assignmentId: string; taskId: string }) => {
+      await apiFetch(`/assignments/${input.assignmentId}/done`, { method: 'POST', token, body: {} });
+    },
+    onSuccess: (_d, input) => {
+      qc.invalidateQueries({ queryKey: ['tasks', 'list'] });
+      qc.invalidateQueries({ queryKey: ['tasks', 'detail', input.taskId] });
+    },
+  });
+}
+
+export function useAssignmentRequestHelp() {
+  const { token } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { assignmentId: string; taskId: string; note?: string }) => {
+      await apiFetch(`/assignments/${input.assignmentId}/help`, {
+        method: 'POST',
+        token,
+        body: input.note ? { note: input.note } : {},
+      });
+    },
+    onSuccess: (_d, input) => {
+      qc.invalidateQueries({ queryKey: ['tasks', 'list'] });
+      qc.invalidateQueries({ queryKey: ['tasks', 'detail', input.taskId] });
+    },
+  });
+}
+
+export function useAssignmentRequestDelay() {
+  const { token } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { assignmentId: string; taskId: string; until?: Date }) => {
+      await apiFetch(`/assignments/${input.assignmentId}/delay`, {
+        method: 'POST',
+        token,
+        body: input.until ? { until: input.until } : {},
+      });
+    },
+    onSuccess: (_d, input) => {
       qc.invalidateQueries({ queryKey: ['tasks', 'list'] });
       qc.invalidateQueries({ queryKey: ['tasks', 'detail', input.taskId] });
     },
