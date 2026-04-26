@@ -12,6 +12,7 @@ export function useCreateTask() {
       title: string;
       description: string;
       assignedTo: string[];
+      priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
       deadline?: Date;
       scheduledAt?: Date;
     }) => {

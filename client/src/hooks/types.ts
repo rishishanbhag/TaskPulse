@@ -8,11 +8,14 @@ export type User = {
 
 export type TaskStatus = 'DRAFT' | 'APPROVED' | 'QUEUED' | 'SENT' | 'COMPLETED';
 
+export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
 export type Task = {
   _id: string;
   title: string;
   description: string;
   status: TaskStatus;
+  priority?: TaskPriority;
   createdBy: string;
   assignedTo: string[];
   deadline?: string;
@@ -22,6 +25,8 @@ export type Task = {
 
 export type AssignmentStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'COMPLETED' | 'FAILED';
 
+export type AssignmentReplyType = 'DONE' | 'HELP' | 'DELAY' | 'UNKNOWN';
+
 export type Assignment = {
   _id: string;
   taskId: string;
@@ -29,5 +34,10 @@ export type Assignment = {
   status: AssignmentStatus;
   lastMessageId?: string;
   updatedAt?: string;
+  lastReplyType?: AssignmentReplyType;
+  lastReplyAt?: string;
+  lastReplyBody?: string;
+  helpRequestedAt?: string;
+  delayRequestedUntil?: string;
 };
 
