@@ -20,6 +20,23 @@ type TaskCompletedEvent = {
   userIds: string[];
 };
 
+type AssignmentHelpRequestedEvent = {
+  type: 'assignment.help_requested';
+  ts: number;
+  taskId: string;
+  assignmentId: string;
+  userId: string;
+};
+
+type AssignmentDelayRequestedEvent = {
+  type: 'assignment.delay_requested';
+  ts: number;
+  taskId: string;
+  assignmentId: string;
+  userId: string;
+  until?: string;
+};
+
 export function useTaskEvents() {
   const { token } = useAuth();
   const qc = useQueryClient();
@@ -44,6 +61,18 @@ export function useTaskEvents() {
 
       es.addEventListener('task.completed', (ev) => {
         const e = JSON.parse((ev as MessageEvent).data) as TaskCompletedEvent;
+        qc.invalidateQueries({ queryKey: ['tasks', 'list'] });
+        qc.invalidateQueries({ queryKey: ['tasks', 'detail', e.taskId] });
+      });
+
+      es.addEventListener('assignment.help_requested', (ev) => {
+        const e = JSON.parse((ev as MessageEvent).data) as AssignmentHelpRequestedEvent;
+        qc.invalidateQueries({ queryKey: ['tasks', 'list'] });
+        qc.invalidateQueries({ queryKey: ['tasks', 'detail', e.taskId] });
+      });
+
+      es.addEventListener('assignment.delay_requested', (ev) => {
+        const e = JSON.parse((ev as MessageEvent).data) as AssignmentDelayRequestedEvent;
         qc.invalidateQueries({ queryKey: ['tasks', 'list'] });
         qc.invalidateQueries({ queryKey: ['tasks', 'detail', e.taskId] });
       });
