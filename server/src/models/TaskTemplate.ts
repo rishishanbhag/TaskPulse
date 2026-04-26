@@ -4,9 +4,11 @@ import { TaskPriority } from '@/models/Task.js';
 
 const taskTemplateSchema = new mongoose.Schema(
   {
+    orgId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
     name: { type: String, required: true, trim: true, maxlength: 200, index: true },
     title: { type: String, required: true, trim: true, maxlength: 200 },
     description: { type: String, required: true, trim: true, maxlength: 4000 },
+    descriptionHtml: { type: String, required: false, trim: true, maxlength: 20_000 },
     defaultPriority: {
       type: String,
       required: true,

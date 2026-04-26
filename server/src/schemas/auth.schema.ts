@@ -15,8 +15,5 @@ export const updatePhoneSchema = z.object({
 
 export const devLoginSchema = z.object({
   email: z.string().email().trim().toLowerCase(),
-  name: z.string().min(1).max(200).optional(),
-  role: z.enum(['admin', 'member']).optional(),
-  phone: e164.optional(),
 });
 

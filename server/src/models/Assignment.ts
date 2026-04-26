@@ -17,6 +17,7 @@ export const AssignmentReplyType = {
 
 const assignmentSchema = new mongoose.Schema(
   {
+    orgId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
     taskId: { type: mongoose.Schema.Types.ObjectId, ref: 'Task', required: true, index: true },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     status: {
