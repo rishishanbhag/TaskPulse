@@ -12,6 +12,15 @@ function pill(status: string) {
   return `${base} border-gray-200 bg-gray-50 text-gray-700`;
 }
 
+function priorityPill(priority?: string) {
+  const base = 'text-[10px] font-semibold px-2 py-1 rounded-full border';
+  const p = (priority ?? 'MEDIUM').toUpperCase();
+  if (p === 'URGENT') return `${base} border-red-200 bg-red-50 text-red-700`;
+  if (p === 'HIGH') return `${base} border-amber-200 bg-amber-50 text-amber-700`;
+  if (p === 'LOW') return `${base} border-gray-200 bg-gray-50 text-gray-600`;
+  return `${base} border-blue-200 bg-blue-50 text-blue-700`;
+}
+
 export function AdminDashboardPage() {
   const { user } = useAuth();
   const { data: tasks, isLoading, error } = useTasks();
@@ -60,7 +69,10 @@ export function AdminDashboardPage() {
                 className="grid grid-cols-12 gap-4 px-4 py-4 hover:bg-gray-50"
               >
                 <div className="col-span-5">
-                  <div className="font-medium">{t.title}</div>
+                  <div className="font-medium flex items-center gap-2">
+                    <span>{t.title}</span>
+                    <span className={priorityPill((t as any).priority)}>{((t as any).priority ?? 'MEDIUM').toUpperCase()}</span>
+                  </div>
                   <div className="text-xs text-gray-500 line-clamp-1">{t.description}</div>
                 </div>
                 <div className="col-span-2">

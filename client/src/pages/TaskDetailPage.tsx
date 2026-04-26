@@ -41,6 +41,7 @@ export function TaskDetailPage() {
           <h1 className="text-2xl font-semibold tracking-tight">{task?.title ?? 'Task'}</h1>
           <div className="text-sm text-gray-500 mt-2 flex items-center gap-2 flex-wrap">
             {task ? <span className={statusBadge(task.status)}>{task.status}</span> : null}
+            {task?.priority ? <span className="text-xs font-semibold px-2 py-1 rounded-full border border-gray-200 bg-gray-50 text-gray-700">{task.priority}</span> : null}
             {task?.deadline ? <span>Deadline: {new Date(task.deadline).toLocaleString()}</span> : null}
             {task?.scheduledAt ? <span>Scheduled: {new Date(task.scheduledAt).toLocaleString()}</span> : null}
           </div>
@@ -110,6 +111,7 @@ export function TaskDetailPage() {
           <div className="col-span-4">Assignment</div>
           <div className="col-span-3">User</div>
           <div className="col-span-3">Status</div>
+          <div className="col-span-2">Signals</div>
           <div className="col-span-2 text-right">Updated</div>
         </div>
         <div className="divide-y divide-gray-200">
@@ -119,6 +121,19 @@ export function TaskDetailPage() {
               <div className="col-span-3 font-mono text-xs text-gray-600">{a.userId}</div>
               <div className="col-span-3">
                 <span className={statusBadge(a.status)}>{a.status}</span>
+              </div>
+              <div className="col-span-2 text-xs text-gray-600">
+                {a.lastReplyType === 'HELP' ? (
+                  <span className="text-[10px] font-semibold px-2 py-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700">
+                    HELP
+                  </span>
+                ) : a.lastReplyType === 'DELAY' ? (
+                  <span className="text-[10px] font-semibold px-2 py-1 rounded-full border border-amber-200 bg-amber-50 text-amber-700">
+                    DELAY
+                  </span>
+                ) : (
+                  <span className="text-gray-400">—</span>
+                )}
               </div>
               <div className="col-span-2 text-right text-xs text-gray-500">
                 {a.updatedAt ? new Date(a.updatedAt).toLocaleString() : '—'}
