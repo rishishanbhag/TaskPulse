@@ -1,10 +1,12 @@
 import jwt from 'jsonwebtoken';
 
 import { env } from '@/config/env.js';
+import type { Role } from '@/types/role.js';
 
 export type JwtPayload = {
   sub: string;
-  role: 'admin' | 'member';
+  orgId: string;
+  role: Role;
 };
 
 export function signJwt(payload: JwtPayload) {
@@ -14,4 +16,3 @@ export function signJwt(payload: JwtPayload) {
 export function verifyJwt(token: string) {
   return (jwt as any).verify(token, env.JWT_SECRET) as JwtPayload;
 }
-
