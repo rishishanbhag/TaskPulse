@@ -22,10 +22,10 @@ function priorityPill(priority?: string) {
 }
 
 export function AdminDashboardPage() {
-  const { user } = useAuth();
+  const { hasRole } = useAuth();
   const { data: tasks, isLoading, error } = useTasks();
 
-  if (user?.role !== 'admin') {
+  if (!hasRole('owner', 'admin', 'manager')) {
     return <div className="text-sm text-gray-600">Forbidden.</div>;
   }
 

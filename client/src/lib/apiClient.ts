@@ -2,6 +2,7 @@ import { env } from '@/config/env';
 
 export type ApiError = {
   message: string;
+  code?: string;
   issues?: { path: (string | number)[]; message: string }[];
 };
 
@@ -38,7 +39,10 @@ export async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promis
   const json = text ? (JSON.parse(text) as any) : null;
 
   if (!res.ok) {
-    const apiError = (json?.error ?? undefined) as ApiError | undefined;
+    const raw = json?.error as { message?: string; code?: string; issues?: ApiError['issues'] } | undefined;
+    const apiError: ApiError | undefined = raw
+      ? { message: raw.message ?? `Request failed (${res.status})`, ...(raw.code ? { code: raw.code } : {}), issues: raw.issues }
+      : undefined;
     const msg = apiError?.message ?? `Request failed (${res.status})`;
     throw new HttpError(res.status, msg, apiError);
   }

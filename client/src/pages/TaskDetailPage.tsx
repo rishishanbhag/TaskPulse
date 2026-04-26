@@ -2,8 +2,15 @@ import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { useAuth } from '@/auth/AuthProvider';
-import { useApproveTask, useRescheduleTask } from '@/hooks/mutations';
+import {
+  useApproveTask,
+  useAssignmentMarkDone,
+  useAssignmentRequestDelay,
+  useAssignmentRequestHelp,
+  useRescheduleTask,
+} from '@/hooks/mutations';
 import { useTask } from '@/hooks/useTask';
+import { isAssignmentActionableStatus } from '@/lib/assignmentStatus';
 
 function statusBadge(status: string) {
   const base = 'text-xs font-semibold px-2 py-1 rounded-full border';
@@ -16,17 +23,29 @@ function statusBadge(status: string) {
 
 export function TaskDetailPage() {
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
   const taskId = id ?? '';
   const { data, isLoading, error } = useTask(taskId);
   const approve = useApproveTask();
   const reschedule = useRescheduleTask();
+  const markDone = useAssignmentMarkDone();
+  const requestHelp = useAssignmentRequestHelp();
+  const requestDelay = useAssignmentRequestDelay();
   const [scheduledAt, setScheduledAt] = useState('');
+  const [helpNote, setHelpNote] = useState('');
+  const [delayUntil, setDelayUntil] = useState('');
 
   const task = data?.task;
   const assignments = data?.assignments ?? [];
 
-  const canAdmin = user?.role === 'admin';
+  const canAdmin = hasRole('owner', 'admin', 'manager');
+  const myAssignment = useMemo(
+    () => (user ? assignments.find((a) => String(a.userId) === user.id) : undefined),
+    [assignments, user],
+  );
+  const canActOnAssignment = Boolean(
+    myAssignment && user?.role === 'member' && isAssignmentActionableStatus(myAssignment.status),
+  );
 
   const assignmentCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -41,12 +60,20 @@ export function TaskDetailPage() {
           <h1 className="text-2xl font-semibold tracking-tight">{task?.title ?? 'Task'}</h1>
           <div className="text-sm text-gray-500 mt-2 flex items-center gap-2 flex-wrap">
             {task ? <span className={statusBadge(task.status)}>{task.status}</span> : null}
+            {task?.shortCode ? (
+              <span className="text-xs font-mono px-2 py-0.5 rounded border border-gray-200 bg-gray-50 text-gray-700">
+                {task.shortCode}
+              </span>
+            ) : null}
             {task?.priority ? <span className="text-xs font-semibold px-2 py-1 rounded-full border border-gray-200 bg-gray-50 text-gray-700">{task.priority}</span> : null}
             {task?.deadline ? <span>Deadline: {new Date(task.deadline).toLocaleString()}</span> : null}
             {task?.scheduledAt ? <span>Scheduled: {new Date(task.scheduledAt).toLocaleString()}</span> : null}
           </div>
         </div>
-        <Link to={user?.role === 'admin' ? '/app/dashboard' : '/app/my-tasks'} className="text-sm px-3 py-2 rounded-md border border-gray-200 hover:bg-gray-50">
+        <Link
+          to={hasRole('owner', 'admin', 'manager') ? '/app/dashboard' : '/app/my-tasks'}
+          className="text-sm px-3 py-2 rounded-md border border-gray-200 hover:bg-gray-50"
+        >
           Back
         </Link>
       </div>
@@ -56,7 +83,76 @@ export function TaskDetailPage() {
 
       {task ? (
         <div className="border border-gray-200 rounded-xl p-6 space-y-4">
-          <div className="text-sm text-gray-700 whitespace-pre-wrap">{task.description}</div>
+          {task.descriptionHtml ? (
+            <div
+              className="text-sm text-gray-800 max-w-none [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-blue-600 [&_a]:underline"
+              dangerouslySetInnerHTML={{ __html: task.descriptionHtml }}
+            />
+          ) : (
+            <div className="text-sm text-gray-700 whitespace-pre-wrap">{task.description}</div>
+          )}
+
+          {canActOnAssignment && myAssignment ? (
+            <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-4 space-y-3">
+              <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Your assignment</div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={markDone.isPending}
+                  onClick={() => markDone.mutate({ assignmentId: myAssignment._id, taskId: task._id })}
+                  className="px-3 py-1.5 rounded-md bg-black text-white text-xs font-semibold disabled:opacity-60"
+                >
+                  {markDone.isPending ? '…' : 'Mark done'}
+                </button>
+                <div className="flex flex-1 min-w-[200px] flex-wrap items-center gap-2">
+                  <input
+                    value={helpNote}
+                    onChange={(e) => setHelpNote(e.target.value)}
+                    placeholder="Help note (optional)"
+                    className="flex-1 min-w-[120px] px-2 py-1.5 rounded-md border border-gray-200 text-xs bg-white"
+                  />
+                  <button
+                    type="button"
+                    disabled={requestHelp.isPending}
+                    onClick={() => {
+                      requestHelp.mutate(
+                        { assignmentId: myAssignment._id, taskId: task._id, note: helpNote.trim() || undefined },
+                        { onSuccess: () => setHelpNote('') },
+                      );
+                    }}
+                    className="px-3 py-1.5 rounded-md border border-purple-200 bg-purple-50 text-purple-900 text-xs font-semibold disabled:opacity-60"
+                  >
+                    {requestHelp.isPending ? '…' : 'Need help'}
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="datetime-local"
+                    value={delayUntil}
+                    onChange={(e) => setDelayUntil(e.target.value)}
+                    className="px-2 py-1.5 rounded-md border border-gray-200 text-xs bg-white"
+                  />
+                  <button
+                    type="button"
+                    disabled={requestDelay.isPending}
+                    onClick={() => {
+                      requestDelay.mutate(
+                        {
+                          assignmentId: myAssignment._id,
+                          taskId: task._id,
+                          until: delayUntil ? new Date(delayUntil) : undefined,
+                        },
+                        { onSuccess: () => setDelayUntil('') },
+                      );
+                    }}
+                    className="px-3 py-1.5 rounded-md border border-amber-200 bg-amber-50 text-amber-900 text-xs font-semibold disabled:opacity-60"
+                  >
+                    {requestDelay.isPending ? '…' : 'Request delay'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <div className="flex flex-wrap gap-2">
             {Array.from(assignmentCounts.entries()).map(([s, n]) => (
