@@ -13,6 +13,7 @@ vi.mock('../models/User.js', () => {
         select: vi.fn(() => ({
           lean: vi.fn(async () => ({
             _id: '507f1f77bcf86cd799439011',
+            orgId: '507f1f77bcf86cd799439021',
             role: 'admin',
             name: 'Admin',
             email: 'admin@test.local',
@@ -26,7 +27,11 @@ vi.mock('../models/User.js', () => {
 
 vi.mock('../utils/jwt.js', () => {
   return {
-    verifyJwt: vi.fn(() => ({ sub: '507f1f77bcf86cd799439011', role: 'admin' })),
+    verifyJwt: vi.fn(() => ({
+      sub: '507f1f77bcf86cd799439011',
+      orgId: '507f1f77bcf86cd799439021',
+      role: 'admin',
+    })),
   };
 });
 
@@ -43,6 +48,7 @@ describe('requireAuth', () => {
     expect(next).toHaveBeenCalledOnce();
     expect(req.user).toEqual({
       id: '507f1f77bcf86cd799439011',
+      orgId: '507f1f77bcf86cd799439021',
       name: 'Admin',
       email: 'admin@test.local',
       phone: null,
