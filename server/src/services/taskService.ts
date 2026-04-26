@@ -39,6 +39,7 @@ export async function createTask(input: {
   description: string;
   createdBy: string;
   assignedTo: string[];
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   deadline?: Date;
   scheduledAt?: Date;
 }) {
@@ -47,6 +48,7 @@ export async function createTask(input: {
     description: input.description,
     createdBy: input.createdBy,
     assignedTo: input.assignedTo,
+    ...(input.priority ? { priority: input.priority } : {}),
     deadline: input.deadline,
     scheduledAt: input.scheduledAt,
     status: TaskStatus.DRAFT,

@@ -15,6 +15,19 @@ export type TaskEvent =
       status: string;
     })
   | (BaseEvent & {
+      type: 'assignment.help_requested';
+      taskId: string;
+      assignmentId: string;
+      userId: string;
+    })
+  | (BaseEvent & {
+      type: 'assignment.delay_requested';
+      taskId: string;
+      assignmentId: string;
+      userId: string;
+      until?: string;
+    })
+  | (BaseEvent & {
       type: 'task.completed';
       taskId: string;
       userIds: string[];
@@ -22,7 +35,9 @@ export type TaskEvent =
 
 const pub = new Redis(env.REDIS_URL);
 
-export async function publishEvent(event: Omit<TaskEvent, 'ts'>) {
+type WithoutTs<T> = T extends any ? Omit<T, 'ts'> : never;
+
+export async function publishEvent(event: WithoutTs<TaskEvent>) {
   const payload: TaskEvent = { ...(event as any), ts: Date.now() };
   await pub.publish(EVENTS_CHANNEL, JSON.stringify(payload));
 }
