@@ -4,8 +4,10 @@ import { useAuth } from '@/auth/AuthProvider';
 import { useTaskEvents } from '@/hooks/useTaskEvents';
 
 export function AppShell() {
-  const { user, logout } = useAuth();
+  const { user, logout, hasRole } = useAuth();
   useTaskEvents();
+
+  const showStaff = hasRole('owner', 'admin', 'manager');
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
@@ -17,22 +19,22 @@ export function AppShell() {
             </Link>
             <nav className="text-sm text-gray-600 flex items-center gap-3">
               <Link to="/app">Home</Link>
-              {user?.role === 'admin' ? (
+              <Link to="/app/my-tasks">My tasks</Link>
+              {showStaff ? (
                 <>
                   <Link to="/app/dashboard">Dashboard</Link>
                   <Link to="/app/admin/tasks/new">New task</Link>
                 </>
-              ) : (
-                <Link to="/app/my-tasks">My tasks</Link>
-              )}
+              ) : null}
+              {hasRole('owner', 'admin', 'manager') ? <Link to="/app/settings">Settings</Link> : null}
             </nav>
           </div>
 
           <div className="flex items-center gap-3">
             {user ? (
               <div className="text-sm text-gray-600">
-                <span className="font-medium text-gray-900">{user.name}</span>{' '}
-                <span className="text-gray-400">·</span> {user.role}
+                <span className="font-medium text-gray-900">{user.name}</span> <span className="text-gray-400">·</span>{' '}
+                {user.role}
               </div>
             ) : null}
             <button
@@ -51,4 +53,3 @@ export function AppShell() {
     </div>
   );
 }
-
