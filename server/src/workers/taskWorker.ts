@@ -11,39 +11,56 @@ import { JOB_SEND_ASSIGNMENT_MESSAGE, JOB_SEND_DEADLINE_REMINDER, JOB_SEND_TASK_
 import { enqueueSendAssignmentMessage } from '@/queue/producers.js';
 import { delKeys } from '@/services/cache.js';
 import { publishEvent } from '@/services/events.js';
+import { cacheKeysForTaskMutations, invalidateTaskListsForOrg } from '@/services/taskService.js';
 import { sendWhatsAppTaskMessage } from '@/services/twilioService.js';
+import { htmlToWhatsApp } from '@/utils/sanitizeDescription.js';
 
-function buildTaskBody(task: { title: string; description: string; deadline?: Date | null; priority?: string | null }) {
+function buildTaskBody(task: {
+  title: string;
+  shortCode: string;
+  description: string;
+  descriptionHtml?: string | null;
+  deadline?: Date | null;
+  priority?: string | null;
+}) {
+  const descOut = (task as any).descriptionHtml ? htmlToWhatsApp(String((task as any).descriptionHtml)) : task.description;
+  const code = (task as any).shortCode ? String((task as any).shortCode) : '';
   const lines = [
     task.priority && task.priority.toUpperCase() === 'URGENT' ? `[URGENT]` : undefined,
-    `Task: ${task.title}`,
+    code ? `Task ${code}: ${task.title}` : `Task: ${task.title}`,
     task.priority ? `Priority: ${task.priority}` : undefined,
     '',
-    task.description,
+    descOut,
     '',
     task.deadline ? `Deadline: ${task.deadline.toISOString()}` : undefined,
-    `Reply DONE when finished.`,
+    code ? `Reply DONE ${code} when finished (include the code if you have several open tasks).` : `Reply DONE when finished.`,
   ].filter(Boolean) as string[];
   return lines.join('\n');
 }
 
-function buildReminderBody(input: { title: string; window: '24h' | '1h' }) {
+function buildReminderBody(input: { title: string; shortCode?: string; window: '24h' | '1h' }) {
   const label = input.window === '24h' ? '24 hours' : '1 hour';
-  return `Reminder: "${input.title}" is due in ${label}.\nReply DONE when finished.`;
+  const c = input.shortCode ? ` ${input.shortCode}` : '';
+  return `Reminder: "${input.title}" is due in ${label}.\nReply DONE${c} when finished.`;
 }
 
-async function invalidateTaskAndAssignmentCaches(taskId: string, userId: string) {
-  await delKeys([
-    `tp:v1:task:${taskId}:assignments`,
-    `tp:v1:task:${taskId}:detail`,
-    'tp:v1:tasks:list:admin',
-    `tp:v1:tasks:list:user:${userId}`,
-  ]);
+async function invalidateTaskAndAssignmentCaches(orgId: string, taskId: string) {
+  await delKeys([...cacheKeysForTaskMutations(orgId, taskId)]);
+  await invalidateTaskListsForOrg(orgId);
 }
 
-async function publishAssignmentUpdated(input: { taskId: string; assignmentId: string; userId: string; status: string }) {
+async function publishAssignmentUpdated(input: {
+  orgId: string;
+  groupId?: string | null;
+  taskId: string;
+  assignmentId: string;
+  userId: string;
+  status: string;
+}) {
   await publishEvent({
     type: 'assignment.updated',
+    orgId: input.orgId,
+    groupId: input.groupId,
     taskId: input.taskId,
     assignmentId: input.assignmentId,
     userId: input.userId,
@@ -51,7 +68,7 @@ async function publishAssignmentUpdated(input: { taskId: string; assignmentId: s
   });
 }
 
-async function maybeMarkTaskSent(taskId: string) {
+async function maybeMarkTaskSent(taskId: string, orgId: string) {
   const remainingPending = await AssignmentModel.countDocuments({
     taskId,
     status: AssignmentStatus.PENDING,
@@ -59,7 +76,8 @@ async function maybeMarkTaskSent(taskId: string) {
 
   if (remainingPending === 0) {
     await TaskModel.updateOne({ _id: taskId }, { $set: { status: TaskStatus.SENT } });
-    await delKeys([`tp:v1:task:${taskId}:detail`, 'tp:v1:tasks:list:admin']);
+    await delKeys([...cacheKeysForTaskMutations(orgId, taskId)]);
+    await invalidateTaskListsForOrg(orgId);
   }
 }
 
@@ -98,7 +116,7 @@ export function initTaskWorker() {
         }
 
         // Task may already be trivially send-complete (e.g. no assignments), keep behavior consistent.
-        await maybeMarkTaskSent(String(task._id));
+        await maybeMarkTaskSent(String(task._id), String(task.orgId));
         return;
       }
 
@@ -120,7 +138,7 @@ export function initTaskWorker() {
         const users = await UserModel.find({ _id: { $in: userIds } }).select('_id phone').lean();
         const usersById = new Map(users.map((u) => [String(u._id), u]));
 
-        const body = buildReminderBody({ title: task.title, window });
+        const body = buildReminderBody({ title: task.title, shortCode: (task as any).shortCode, window });
 
         for (const a of incomplete) {
           const u = usersById.get(String(a.userId));
@@ -154,6 +172,9 @@ export function initTaskWorker() {
         return;
       }
 
+      const orgIdStr = String(task.orgId);
+      const groupIdVal = (task as any).groupId ? String((task as any).groupId) : null;
+
       const user = await UserModel.findById(assignment.userId);
       if (!user?.phone) {
         const taskIdStr = String(task._id);
@@ -162,14 +183,16 @@ export function initTaskWorker() {
           { _id: assignment._id },
           { $set: { status: AssignmentStatus.FAILED, updatedAt: new Date() } },
         );
-        await invalidateTaskAndAssignmentCaches(taskIdStr, userIdStr);
+        await invalidateTaskAndAssignmentCaches(orgIdStr, taskIdStr);
         await publishAssignmentUpdated({
+          orgId: orgIdStr,
+          groupId: groupIdVal,
           taskId: taskIdStr,
           assignmentId: String(assignment._id),
           userId: userIdStr,
           status: AssignmentStatus.FAILED,
         });
-        await maybeMarkTaskSent(taskIdStr);
+        await maybeMarkTaskSent(taskIdStr, orgIdStr);
         return;
       }
 
@@ -186,6 +209,7 @@ export function initTaskWorker() {
 
         const attempt = job.attemptsMade + 1;
         const msg = await MessageModel.create({
+          orgId: task.orgId,
           taskId: task._id,
           userId: user._id,
           assignmentId: assignment._id,
@@ -207,15 +231,17 @@ export function initTaskWorker() {
           },
         );
 
-        await invalidateTaskAndAssignmentCaches(taskIdStr, userIdStr);
+        await invalidateTaskAndAssignmentCaches(orgIdStr, taskIdStr);
         await publishAssignmentUpdated({
+          orgId: orgIdStr,
+          groupId: groupIdVal,
           taskId: taskIdStr,
           assignmentId: String(assignment._id),
           userId: userIdStr,
           status: AssignmentStatus.SENT,
         });
 
-        await maybeMarkTaskSent(taskIdStr);
+        await maybeMarkTaskSent(taskIdStr, orgIdStr);
         return;
       } catch (err) {
         const isFinalAttempt = (job.attemptsMade + 1) >= (job.opts.attempts ?? 1);
@@ -229,14 +255,16 @@ export function initTaskWorker() {
             { _id: assignment._id },
             { $set: { status: AssignmentStatus.FAILED, updatedAt: new Date() } },
           );
-          await invalidateTaskAndAssignmentCaches(taskIdStr, userIdStr);
+          await invalidateTaskAndAssignmentCaches(orgIdStr, taskIdStr);
           await publishAssignmentUpdated({
+            orgId: orgIdStr,
+            groupId: groupIdVal,
             taskId: taskIdStr,
             assignmentId: String(assignment._id),
             userId: userIdStr,
             status: AssignmentStatus.FAILED,
           });
-          await maybeMarkTaskSent(taskIdStr);
+          await maybeMarkTaskSent(taskIdStr, orgIdStr);
         }
 
         // Re-throw so BullMQ retries (unless this was final attempt).
