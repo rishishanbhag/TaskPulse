@@ -71,7 +71,8 @@ export const streamController = {
         }
 
         if (event.type === 'task.completed') {
-          if (!event.userIds.includes(req.user?.id)) return;
+          if (!req.user?.id) return;
+          if (!event.userIds.includes(req.user.id)) return;
           sseWrite(res, event);
           return;
         }

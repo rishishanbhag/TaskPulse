@@ -1,11 +1,12 @@
 import Twilio from 'twilio';
 
-import { AssignmentModel, AssignmentStatus } from '@/models/Assignment.js';
+import { AssignmentModel, AssignmentReplyType, AssignmentStatus } from '@/models/Assignment.js';
 import { MessageModel } from '@/models/Message.js';
 import { TaskModel, TaskStatus } from '@/models/Task.js';
 import { UserModel } from '@/models/User.js';
 import { delKeys } from '@/services/cache.js';
 import { publishEvent } from '@/services/events.js';
+import { parseInboundReply } from '@/services/replyParser.js';
 import { asyncHandler } from '@/utils/asyncHandler.js';
 import { normalizeTwilioFrom } from '@/utils/phone.js';
 
@@ -78,12 +79,6 @@ export const webhookController = {
       return;
     }
 
-    if (!/^\s*done\s*$/i.test(body)) {
-      twiml.message('Reply DONE when you finish the task.');
-      res.type('text/xml').send(twiml.toString());
-      return;
-    }
-
     const assignment = await AssignmentModel.findOne({
       userId: user._id,
       status: { $in: [AssignmentStatus.SENT, AssignmentStatus.DELIVERED, AssignmentStatus.PENDING] },
@@ -95,9 +90,32 @@ export const webhookController = {
       return;
     }
 
-    assignment.status = AssignmentStatus.COMPLETED;
-    assignment.updatedAt = new Date();
-    await assignment.save();
+    const now = new Date();
+    const parsed = parseInboundReply(body, now);
+
+    assignment.lastReplyAt = now;
+    assignment.lastReplyBody = body.slice(0, 1000);
+
+    if (parsed.type === 'DONE') {
+      assignment.lastReplyType = AssignmentReplyType.DONE;
+      assignment.status = AssignmentStatus.COMPLETED;
+      assignment.updatedAt = now;
+      await assignment.save();
+    } else if (parsed.type === 'HELP') {
+      assignment.lastReplyType = AssignmentReplyType.HELP;
+      assignment.helpRequestedAt = now;
+      assignment.updatedAt = now;
+      await assignment.save();
+    } else if (parsed.type === 'DELAY') {
+      assignment.lastReplyType = AssignmentReplyType.DELAY;
+      if (parsed.until) assignment.delayRequestedUntil = parsed.until;
+      assignment.updatedAt = now;
+      await assignment.save();
+    } else {
+      assignment.lastReplyType = AssignmentReplyType.UNKNOWN;
+      assignment.updatedAt = now;
+      await assignment.save();
+    }
 
     const taskIdStr = String(assignment.taskId);
     await delKeys([
@@ -107,29 +125,59 @@ export const webhookController = {
       `tp:v1:tasks:list:user:${String(user._id)}`,
     ]);
 
-    await publishEvent({
-      type: 'assignment.updated',
-      taskId: taskIdStr,
-      assignmentId: String(assignment._id),
-      userId: String(user._id),
-      status: AssignmentStatus.COMPLETED,
-    });
+    const assignmentIdStr = String(assignment._id);
+    const userIdStr = String(user._id);
 
-    const remaining = await AssignmentModel.countDocuments({
-      taskId: assignment.taskId,
-      status: { $ne: AssignmentStatus.COMPLETED },
-    });
-
-    if (remaining === 0) {
-      await TaskModel.updateOne({ _id: assignment.taskId }, { $set: { status: TaskStatus.COMPLETED } });
-      await delKeys([`tp:v1:task:${taskIdStr}:detail`]);
-
-      const task = await TaskModel.findById(assignment.taskId).select('assignedTo').lean();
-      const userIds = ((task?.assignedTo as any[]) ?? []).map(String);
-      await publishEvent({ type: 'task.completed', taskId: taskIdStr, userIds });
+    if (parsed.type === 'DONE') {
+      await publishEvent({
+        type: 'assignment.updated',
+        taskId: taskIdStr,
+        assignmentId: assignmentIdStr,
+        userId: userIdStr,
+        status: AssignmentStatus.COMPLETED,
+      });
+    } else if (parsed.type === 'HELP') {
+      await publishEvent({
+        type: 'assignment.help_requested',
+        taskId: taskIdStr,
+        assignmentId: assignmentIdStr,
+        userId: userIdStr,
+      });
+    } else if (parsed.type === 'DELAY') {
+      await publishEvent({
+        type: 'assignment.delay_requested',
+        taskId: taskIdStr,
+        assignmentId: assignmentIdStr,
+        userId: userIdStr,
+        ...(parsed.until ? { until: parsed.until.toISOString() } : {}),
+      });
     }
 
-    twiml.message('Marked as completed. Thank you!');
+    if (parsed.type === 'DONE') {
+      const remaining = await AssignmentModel.countDocuments({
+        taskId: assignment.taskId,
+        status: { $ne: AssignmentStatus.COMPLETED },
+      });
+
+      if (remaining === 0) {
+        await TaskModel.updateOne({ _id: assignment.taskId }, { $set: { status: TaskStatus.COMPLETED } });
+        await delKeys([`tp:v1:task:${taskIdStr}:detail`]);
+
+        const task = await TaskModel.findById(assignment.taskId).select('assignedTo').lean();
+        const userIds = ((task?.assignedTo as any[]) ?? []).map(String);
+        await publishEvent({ type: 'task.completed', taskId: taskIdStr, userIds });
+      }
+    }
+
+    if (parsed.type === 'DONE') {
+      twiml.message('Marked as completed. Thank you!');
+    } else if (parsed.type === 'HELP') {
+      twiml.message('Got it — your manager has been notified.');
+    } else if (parsed.type === 'DELAY') {
+      twiml.message('Noted. Delay request sent to your manager.');
+    } else {
+      twiml.message('Reply DONE when finished. You can also reply HELP or DELAY 4h / DELAY 1d.');
+    }
     res.type('text/xml').send(twiml.toString());
   }),
 };

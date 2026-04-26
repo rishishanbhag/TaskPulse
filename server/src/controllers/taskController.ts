@@ -1,4 +1,4 @@
-import { enqueueSendTaskNotifications, rescheduleSendTaskNotifications } from '@/queue/producers.js';
+import { enqueueDeadlineReminders, enqueueSendTaskNotifications, removeDeadlineReminders, rescheduleSendTaskNotifications } from '@/queue/producers.js';
 import { listAssignmentsForTask } from '@/services/assignmentService.js';
 import { approveTask, createTask, getTaskForUser, listTasksForUser, rescheduleTask } from '@/services/taskService.js';
 import { asyncHandler } from '@/utils/asyncHandler.js';
@@ -10,6 +10,7 @@ export const taskController = {
       title: string;
       description: string;
       assignedTo: string[];
+      priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
       deadline?: Date;
       scheduledAt?: Date;
     };
@@ -18,6 +19,7 @@ export const taskController = {
       title: body.title,
       description: body.description,
       assignedTo: body.assignedTo,
+      priority: body.priority,
       deadline: body.deadline,
       scheduledAt: body.scheduledAt,
       createdBy: req.user.id,
@@ -36,6 +38,7 @@ export const taskController = {
         : undefined;
 
     await enqueueSendTaskNotifications(String(task._id), { delay });
+    if (task.deadline) await enqueueDeadlineReminders(String(task._id), task.deadline);
     res.json({ task });
   }),
 
@@ -46,6 +49,9 @@ export const taskController = {
 
     const delay = Math.max(0, scheduledAt.getTime() - Date.now());
     await rescheduleSendTaskNotifications(String(task._id), { delay });
+
+    await removeDeadlineReminders(String(task._id));
+    if (task.deadline) await enqueueDeadlineReminders(String(task._id), task.deadline);
 
     res.json({ task });
   }),
