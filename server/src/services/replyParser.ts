@@ -1,7 +1,7 @@
 export type ReplyParseResult =
-  | { type: 'DONE' }
-  | { type: 'HELP'; note?: string }
-  | { type: 'DELAY'; until?: Date }
+  | { type: 'DONE'; code?: string }
+  | { type: 'HELP'; code?: string; note?: string }
+  | { type: 'DELAY'; code?: string; until?: Date }
   | { type: 'UNKNOWN' };
 
 function parseDelayDurationToDate(rest: string, now: Date) {
@@ -15,25 +15,41 @@ function parseDelayDurationToDate(rest: string, now: Date) {
   return new Date(now.getTime() + ms);
 }
 
+function extractTaskCode(body: string): string | undefined {
+  const m = body.match(/\bT-[A-Z2-9]{5}\b/i);
+  return m ? m[0].toUpperCase() : undefined;
+}
+
+/**
+ * Strips a task code (T-XXXXX) for command matching.
+ */
+function withoutTaskCodes(body: string) {
+  return body.replace(/\bT-[A-Z2-9]{5}\b/gi, ' ').replace(/\s+/g, ' ').trim();
+}
+
 export function parseInboundReply(body: string, now = new Date()): ReplyParseResult {
   const trimmed = body.trim();
   if (!trimmed) return { type: 'UNKNOWN' };
 
-  if (/^done$/i.test(trimmed)) return { type: 'DONE' };
+  const code = extractTaskCode(trimmed);
+  const inner = withoutTaskCodes(trimmed);
 
-  const helpMatch = trimmed.match(/^help(?:\s+(.*))?$/i);
-  if (helpMatch) {
-    const note = helpMatch[1]?.trim();
-    return { type: 'HELP', ...(note ? { note } : {}) };
+  if (/^done$/i.test(inner) || /^complete(?:d)?$/i.test(inner) || /^finished$/i.test(inner)) {
+    return { type: 'DONE', ...(code ? { code } : {}) };
   }
 
-  const delayMatch = trimmed.match(/^delay(?:\s+(.*))?$/i);
+  const helpMatch = inner.match(/^help(?:\s+(.*))?$/i);
+  if (helpMatch) {
+    const note = helpMatch[1]?.trim();
+    return { type: 'HELP', ...(code ? { code } : {}), ...(note ? { note } : {}) };
+  }
+
+  const delayMatch = inner.match(/^delay(?:\s+(.*))?$/i);
   if (delayMatch) {
     const rest = delayMatch[1]?.trim() ?? '';
     const until = rest ? parseDelayDurationToDate(rest, now) : undefined;
-    return { type: 'DELAY', ...(until ? { until } : {}) };
+    return { type: 'DELAY', ...(code ? { code } : {}), ...(until ? { until } : {}) };
   }
 
   return { type: 'UNKNOWN' };
 }
-
