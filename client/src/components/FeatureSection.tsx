@@ -29,8 +29,6 @@ export default function FeatureSection() {
 
         {/* Simulated Desktop App / Chat View Right Side */}
         <div className="flex-1 p-8 lg:p-12 relative w-full">
-          <div className="absolute inset-y-0 right-0 w-2/3 bg-gradient-to-l from-white to-transparent pointer-events-none hidden lg:block" />
-          
           <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <div className="text-xs uppercase tracking-widest text-gray-400 font-semibold">Message · Whatsapp</div>

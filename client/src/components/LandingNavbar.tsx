@@ -16,14 +16,13 @@ export function LandingNavbar() {
             Login
           </Link>
           <Link
-            to="/login"
+            to="/signup"
             className="px-3 py-2 rounded-md text-sm font-semibold bg-[#0f172a] text-white hover:opacity-95"
           >
-            Sign in
+            Sign up
           </Link>
         </div>
       </div>
     </header>
   );
 }
-
