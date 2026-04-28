@@ -1,10 +1,10 @@
 import { Router } from 'express';
+import { z } from 'zod';
 
 import { assignmentController } from '@/controllers/assignmentController.js';
 import { requireAuth } from '@/middlewares/auth.js';
 import { validate } from '@/middlewares/validate.js';
 import { assignmentDelayBodySchema, assignmentHelpBodySchema } from '@/schemas/assignment.schema.js';
-import { z } from 'zod';
 
 const empty = z.object({});
 

@@ -3,8 +3,8 @@ import { Router } from 'express';
 import { groupController } from '@/controllers/groupController.js';
 import { requireAuth } from '@/middlewares/auth.js';
 import { requireManagerGroupParamIfManager, requireRole } from '@/middlewares/rbac.js';
-import { UserRole } from '@/models/User.js';
 import { validate } from '@/middlewares/validate.js';
+import { UserRole } from '@/models/User.js';
 import { createGroupSchema, groupMemberBodySchema, updateGroupSchema } from '@/schemas/group.schema.js';
 
 export const groupRoutes = Router();

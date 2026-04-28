@@ -5,8 +5,8 @@ import { orgController } from '@/controllers/orgController.js';
 import { requireAuth } from '@/middlewares/auth.js';
 import { devOnly } from '@/middlewares/devOnly.js';
 import { requireRole } from '@/middlewares/rbac.js';
-import { UserRole } from '@/models/User.js';
 import { validate } from '@/middlewares/validate.js';
+import { UserRole } from '@/models/User.js';
 import {
   devOrgJoinSchema,
   devOrgSignupSchema,

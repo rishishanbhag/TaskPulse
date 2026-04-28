@@ -1,11 +1,11 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 
 import { authController } from '@/controllers/authController.js';
 import { requireAuth } from '@/middlewares/auth.js';
 import { devOnly } from '@/middlewares/devOnly.js';
 import { validate } from '@/middlewares/validate.js';
 import { devLoginSchema, googleAuthSchema, updatePhoneSchema } from '@/schemas/auth.schema.js';
-import rateLimit from 'express-rate-limit';
 
 export const authRoutes = Router();
 
