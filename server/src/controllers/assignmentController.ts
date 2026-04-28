@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-import { AssignmentModel, AssignmentStatus } from '@/models/Assignment.js';
+import { AssignmentModel } from '@/models/Assignment.js';
 import { TaskModel } from '@/models/Task.js';
 import { applyAssignmentReply, openAssignmentStatuses } from '@/services/assignmentReplyService.js';
 import { asyncHandler } from '@/utils/asyncHandler.js';

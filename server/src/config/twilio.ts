@@ -11,7 +11,7 @@ export async function verifyTwilioConnected() {
     // This performs a real authenticated request, so we only log success when
     // the credentials/network are actually working.
     await twilioClient.api.accounts(env.TWILIO_ACCOUNT_SID).fetch();
-    console.log('Twilio connected');
+    logger.info({ accountSidPrefix: env.TWILIO_ACCOUNT_SID.slice(0, 6) }, 'Twilio connected');
   } catch (err) {
     logger.error({ err }, 'Twilio connection check failed');
     throw err;

@@ -8,7 +8,7 @@ export const redis = new Redis(env.REDIS_URL, {
 });
 
 redis.on('ready', () => {
-  console.log('Redis started');
+  logger.info('Redis ready');
 });
 
 redis.on('error', (err) => {

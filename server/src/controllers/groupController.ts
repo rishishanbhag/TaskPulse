@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
-import { UserRole } from '@/models/User.js';
 import { GroupModel } from '@/models/Group.js';
+import { UserRole } from '@/models/User.js';
 import { addMemberToGroup, createGroup, deleteGroup, listGroupsForUser, removeMemberFromGroup, renameGroup } from '@/services/groupService.js';
 import { asyncHandler } from '@/utils/asyncHandler.js';
 export const groupController = {
