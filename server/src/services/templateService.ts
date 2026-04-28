@@ -3,8 +3,8 @@ import mongoose from 'mongoose';
 import { TaskModel, TaskStatus } from '@/models/Task.js';
 import { TaskTemplateModel } from '@/models/TaskTemplate.js';
 import { invalidateTaskListsForOrg } from '@/services/taskService.js';
-import { generateUniqueTaskShortCode } from '@/utils/shortCode.js';
 import { htmlToPlain, sanitizeDescriptionHtml } from '@/utils/sanitizeDescription.js';
+import { generateUniqueTaskShortCode } from '@/utils/shortCode.js';
 
 export async function listTemplates(input: { orgId: string; createdBy?: string }) {
   const query: Record<string, unknown> = { orgId: new mongoose.Types.ObjectId(input.orgId) };

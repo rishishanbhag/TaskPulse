@@ -7,6 +7,8 @@ import { cached, delKeys } from '@/services/cache.js';
 export async function listUsers(input: { orgId: string; role?: string; q?: string; groupId?: string }) {
   const query: Record<string, unknown> = { orgId: new mongoose.Types.ObjectId(input.orgId) };
 
+  const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
   if (input.role === 'admin' || input.role === 'member' || input.role === 'manager' || input.role === 'owner') {
     query.role = input.role;
   }
@@ -21,7 +23,7 @@ export async function listUsers(input: { orgId: string; role?: string; q?: strin
   }
 
   if (input.q && input.q.trim()) {
-    const q = input.q.trim();
+    const q = escapeRegex(input.q.trim());
     query.$or = [{ name: { $regex: q, $options: 'i' } }, { email: { $regex: q, $options: 'i' } }];
   }
 

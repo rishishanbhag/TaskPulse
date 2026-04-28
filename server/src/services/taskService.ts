@@ -4,17 +4,17 @@ import { AssignmentModel } from '@/models/Assignment.js';
 import { GroupModel } from '@/models/Group.js';
 import { TaskModel, TaskStatus } from '@/models/Task.js';
 import { UserModel, UserRole } from '@/models/User.js';
+import { upsertAssignmentsForTask } from '@/services/assignmentService.js';
+import { cached, delByPattern, delKeys } from '@/services/cache.js';
 import {
   addUserIdsToGroup,
   assertAllAssigneesInGroup,
   getGroupIdsForManager,
   getMemberGroupObjectIdsForUser,
 } from '@/services/groupService.js';
-import { cached, delByPattern, delKeys } from '@/services/cache.js';
-import { upsertAssignmentsForTask } from '@/services/assignmentService.js';
-import { generateUniqueTaskShortCode } from '@/utils/shortCode.js';
-import { htmlToPlain, sanitizeDescriptionHtml } from '@/utils/sanitizeDescription.js';
 import type { AuthedUser } from '@/types/user.js';
+import { htmlToPlain, sanitizeDescriptionHtml } from '@/utils/sanitizeDescription.js';
+import { generateUniqueTaskShortCode } from '@/utils/shortCode.js';
 
 const TTL_TASK_LIST_SECONDS = 30;
 const TTL_TASK_DETAIL_SECONDS = 30;

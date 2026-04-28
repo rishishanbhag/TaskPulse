@@ -1,6 +1,6 @@
+import mongoose from 'mongoose';
 import { customAlphabet } from 'nanoid';
 
-import mongoose from 'mongoose';
 
 import { TaskModel } from '@/models/Task.js';
 
