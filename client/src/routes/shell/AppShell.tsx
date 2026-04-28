@@ -18,7 +18,7 @@ export function AppShell() {
     }`;
 
   return (
-    <div className="min-h-screen bg-[#fafafa] text-gray-900">
+    <div className="min-h-screen bg-[rgb(250,250,250)] text-gray-900">
       <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/80 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-6">
