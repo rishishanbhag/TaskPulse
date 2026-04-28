@@ -7,7 +7,7 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
   },
   allowedSchemes: ['http', 'https', 'mailto'],
   transformTags: {
-    a: (tagName, attribs) => ({
+    a: (tagName: string, attribs: Record<string, string>) => ({
       tagName,
       attribs: {
         ...attribs,
@@ -51,7 +51,7 @@ export function htmlToWhatsApp(html: string) {
   s = s.replace(/<\/ol>/gi, '\n');
   s = s.replace(/<li[^>]*>/gi, '• ');
   s = s.replace(/<\/li>/gi, '\n');
-  s = s.replace(/<a[^>]*href="([^"]+)"[^>]*>([^<]*)<\/a>/gi, (_m, href, text) => {
+  s = s.replace(/<a[^>]*href="([^"]+)"[^>]*>([^<]*)<\/a>/gi, (_m: string, href: string, text: string) => {
     const label = String(text || '').trim() || String(href);
     return `${label} (${href})`;
   });

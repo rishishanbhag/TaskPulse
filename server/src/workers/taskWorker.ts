@@ -1,4 +1,4 @@
-import { Worker } from 'bullmq';
+import { Worker, type Job } from 'bullmq';
 import mongoose from 'mongoose';
 
 import { logger } from '@/config/logger.js';
@@ -85,7 +85,7 @@ export function initTaskWorker() {
   const log = logger.child({ component: 'taskWorker' });
   const worker = new Worker(
     'tasks',
-    async (job) => {
+    async (job: Job) => {
       if (
         job.name !== JOB_SEND_TASK_NOTIFICATIONS &&
         job.name !== JOB_SEND_ASSIGNMENT_MESSAGE &&
