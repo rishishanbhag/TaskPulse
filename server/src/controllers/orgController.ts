@@ -1,3 +1,4 @@
+import { env } from '@/config/env.js';
 import {
   createInviteForOrg,
   devJoinWithCode,
@@ -10,9 +11,8 @@ import {
   signupWithGoogleAndOrgName,
   updateMemberRole,
 } from '@/services/orgService.js';
-import { asyncHandler } from '@/utils/asyncHandler.js';
-import { env } from '@/config/env.js';
 import type { Role } from '@/types/role.js';
+import { asyncHandler } from '@/utils/asyncHandler.js';
 
 function publicUrl() {
   return env.PUBLIC_URL.replace(/\/$/, '');

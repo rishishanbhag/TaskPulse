@@ -2,9 +2,9 @@ import type { RequestHandler } from 'express';
 
 import { UserModel } from '@/models/User.js';
 import { cached } from '@/services/cache.js';
+import type { Role } from '@/types/role.js';
 import { verifyJwt } from '@/utils/jwt.js';
 import { isValidOrgIdString } from '@/utils/validateOrgId.js';
-import type { Role } from '@/types/role.js';
 
 declare global {
   namespace Express {

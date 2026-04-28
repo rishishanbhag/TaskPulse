@@ -1,8 +1,8 @@
 import type { RequestHandler } from 'express';
 
+import { GroupModel } from '@/models/Group.js';
 import { UserRole } from '@/models/User.js';
 import type { Role } from '@/types/role.js';
-import { GroupModel } from '@/models/Group.js';
 
 export function requireRole(...allowed: Role[]): RequestHandler {
   return (req, res, next) => {
