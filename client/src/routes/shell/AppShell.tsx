@@ -1,7 +1,7 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { LayoutDashboard, ListTodo, PlusCircle, Settings, LogOut } from 'lucide-react';
 
-import { useAuth } from '@/auth/AuthProvider';
+import { useAuth } from '@/auth/useAuth';
 import { useTaskEvents } from '@/hooks/useTaskEvents';
 
 export function AppShell() {

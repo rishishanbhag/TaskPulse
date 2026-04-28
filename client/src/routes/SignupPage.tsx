@@ -1,9 +1,10 @@
 import { GoogleLogin } from '@react-oauth/google';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 
-import { useAuth, type User } from '@/auth/AuthProvider';
+import { useAuth } from '@/auth/useAuth';
 import { apiFetch, HttpError } from '@/lib/apiClient';
+import type { User } from '@/hooks/types';
 
 const isDev = import.meta.env.DEV;
 
@@ -19,12 +20,12 @@ export function SignupPage() {
   const [devEmail, setDevEmail] = useState('');
   const [devName, setDevName] = useState('');
 
+  const title = tab === 'create' ? 'Create organization' : 'Join with invite code';
+
   if (token && user) {
     if (!user.phone) return <Navigate to="/onboarding/phone" replace />;
     return <Navigate to="/app" replace />;
   }
-
-  const title = useMemo(() => (tab === 'create' ? 'Create organization' : 'Join with invite code'), [tab]);
 
   return (
     <div className="min-h-screen bg-white text-gray-900 flex items-center justify-center px-6 py-10">

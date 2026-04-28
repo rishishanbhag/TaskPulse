@@ -6,13 +6,13 @@ import { env } from '../src/config/env.js';
 async function main() {
   await mongoose.connect(env.MONGO_URI);
   await mongoose.connection.dropDatabase();
-  // eslint-disable-next-line no-console
+   
   console.log('Database dropped.');
   await mongoose.disconnect();
 }
 
 main().catch((e) => {
-  // eslint-disable-next-line no-console
+   
   console.error(e);
   process.exit(1);
 });

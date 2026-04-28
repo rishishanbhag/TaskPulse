@@ -1,5 +1,6 @@
-import cors from 'cors';
 import { randomUUID } from 'node:crypto';
+
+import cors from 'cors';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
@@ -44,7 +45,7 @@ async function main() {
       legacyHeaders: false,
     }),
   );
-  app.use(express.json());
+  app.use(express.json({ limit: '64kb' }));
 
   app.get('/healthz', (_req, res) => res.json({ ok: true }));
   app.use(router);
@@ -52,7 +53,7 @@ async function main() {
   app.use(errorMiddleware);
 
   app.listen(env.PORT, () => {
-    console.log('Server started');
+    logger.info({ port: env.PORT, env: env.NODE_ENV }, 'Server started');
   });
 }
 
