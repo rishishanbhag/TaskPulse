@@ -2,7 +2,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import { useState } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 
-import { useAuth } from '@/auth/AuthProvider';
+import { useAuth } from '@/auth/useAuth';
 import { apiFetch, HttpError } from '@/lib/apiClient';
 import type { User } from '@/hooks/types';
 
@@ -59,12 +59,12 @@ export function LoginPage() {
                   return;
                 }
                 const msg = e instanceof HttpError ? e.message : 'Login failed';
-                // eslint-disable-next-line no-alert
+                 
                 alert(msg);
               }
             }}
             onError={() => {
-              // eslint-disable-next-line no-alert
+               
               alert('Google sign-in failed');
             }}
             useOneTap={false}
@@ -104,7 +104,7 @@ export function LoginPage() {
                     setNeedsOrgMessage(true);
                     return;
                   }
-                  // eslint-disable-next-line no-alert
+                   
                   alert(e instanceof HttpError ? e.message : 'Dev login failed');
                 }
               }}

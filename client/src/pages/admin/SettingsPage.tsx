@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Users, FolderOpen, Link2, Plus, Trash2, UserPlus, Copy } from 'lucide-react';
 
-import { useAuth } from '@/auth/AuthProvider';
+import { useAuth } from '@/auth/useAuth';
 import { useGroups } from '@/hooks/useGroups';
 import { useMembers } from '@/hooks/useMembers';
 import { apiFetch, HttpError } from '@/lib/apiClient';

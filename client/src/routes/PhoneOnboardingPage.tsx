@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 
-import { useAuth } from '@/auth/AuthProvider';
+import { useAuth } from '@/auth/useAuth';
 import { apiFetch, HttpError } from '@/lib/apiClient';
+
+const TWILIO_SANDBOX_JOIN_URL = 'https://wa.me/14155238886?text=join%20wave-opinion';
 
 export function PhoneOnboardingPage() {
   const { token, user, setSession } = useAuth();
@@ -18,12 +20,12 @@ export function PhoneOnboardingPage() {
     setError(null);
     setSaving(true);
     try {
-      const res = await apiFetch<{ user: typeof user }>(`/auth/me/phone`, {
+      const res = await apiFetch<{ user: NonNullable<typeof user> | null }>(`/auth/me/phone`, {
         method: 'PATCH',
         token: authedToken,
         body: { phone },
       });
-      if (res.user) setSession(authedToken, res.user as any);
+      if (res.user) setSession(authedToken, res.user);
       window.location.assign('/app');
     } catch (e) {
       if (e instanceof HttpError) setError(e.message);
@@ -48,6 +50,22 @@ export function PhoneOnboardingPage() {
             placeholder="+14155552671"
             className="w-full px-4 py-3 rounded-md border border-gray-200 outline-none focus:ring-2 focus:ring-black/5"
           />
+
+          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+            <div className="text-sm font-semibold">Enable WhatsApp notifications</div>
+            <div className="text-xs text-gray-600 mt-1">
+              We use the Twilio WhatsApp sandbox right now. This opens WhatsApp with a one-time join message prefilled —
+              you’ll just need to tap Send.
+            </div>
+            <a
+              href={TWILIO_SANDBOX_JOIN_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex w-full items-center justify-center px-4 py-2.5 rounded-md border border-gray-200 bg-white text-sm font-semibold hover:bg-gray-50"
+            >
+              Open WhatsApp to join
+            </a>
+          </div>
 
           {error ? <div className="text-sm text-red-600">{error}</div> : null}
 

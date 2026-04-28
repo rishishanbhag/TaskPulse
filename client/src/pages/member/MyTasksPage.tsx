@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-import { useAuth } from '@/auth/AuthProvider';
+import { useAuth } from '@/auth/useAuth';
 import {
   useAssignmentMarkDone,
   useAssignmentRequestDelay,
@@ -86,7 +86,7 @@ export function MyTasksPage() {
                         }
                         const until = new Date(trimmed);
                         if (Number.isNaN(until.getTime())) {
-                          // eslint-disable-next-line no-alert
+                           
                           alert('Could not parse that date.');
                           return;
                         }

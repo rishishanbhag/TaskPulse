@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { PlusCircle, Clock, CheckCircle2, Send, AlertTriangle } from 'lucide-react';
 
-import { useAuth } from '@/auth/AuthProvider';
+import { useAuth } from '@/auth/useAuth';
 import { useTasks } from '@/hooks/useTasks';
 
 function pill(status: string) {
@@ -111,7 +111,7 @@ export function AdminDashboardPage() {
               >
                 <div className="col-span-5">
                   <div className="font-semibold text-gray-900 flex items-center gap-2 group-hover:text-black">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${priorityDot((t as any).priority)}`} />
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${priorityDot(t.priority)}`} />
                     <span>{t.title}</span>
                   </div>
                   <div className="text-xs text-gray-400 line-clamp-1 ml-4">{t.description}</div>
