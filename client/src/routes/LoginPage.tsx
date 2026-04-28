@@ -58,8 +58,9 @@ export function LoginPage() {
                   setNeedsOrgMessage(true);
                   return;
                 }
-                const msg = e instanceof HttpError ? e.message : 'Login failed';
-                 
+                const msg = e instanceof HttpError
+                  ? e.message
+                  : 'Server is starting up — please try again in a few seconds.';
                 alert(msg);
               }
             }}

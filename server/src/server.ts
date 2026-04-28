@@ -56,6 +56,18 @@ async function main() {
 
   app.listen(env.PORT, () => {
     logger.info({ port: env.PORT, env: env.NODE_ENV }, 'Server started');
+
+    // Ping /healthz every 14 min to prevent Render free-tier spin-down.
+    if (env.NODE_ENV === 'production' && env.PUBLIC_URL) {
+      setInterval(
+        () => {
+          fetch(`${env.PUBLIC_URL}/healthz`).catch(() => {
+            // ignore — best-effort keep-alive
+          });
+        },
+        14 * 60 * 1000,
+      );
+    }
   });
 }
 
