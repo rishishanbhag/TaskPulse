@@ -36,10 +36,12 @@ export async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promis
   });
 
   const text = await res.text();
-  const json = text ? (JSON.parse(text) as any) : null;
+  const json = text ? (JSON.parse(text) as unknown) : null;
 
   if (!res.ok) {
-    const raw = json?.error as { message?: string; code?: string; issues?: ApiError['issues'] } | undefined;
+    const raw = (json as { error?: unknown } | null | undefined)?.error as
+      | { message?: string; code?: string; issues?: ApiError['issues'] }
+      | undefined;
     const apiError: ApiError | undefined = raw
       ? { message: raw.message ?? `Request failed (${res.status})`, ...(raw.code ? { code: raw.code } : {}), issues: raw.issues }
       : undefined;

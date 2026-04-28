@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Save, Send, Calendar, Users, AlignLeft, Flag, CheckCircle2 } from 'lucide-react';
 
-import { useAuth } from '@/auth/AuthProvider';
+import { useAuth } from '@/auth/useAuth';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { useGroups } from '@/hooks/useGroups';
 import { useMembers } from '@/hooks/useMembers';
@@ -69,7 +69,7 @@ export function CreateTaskPage() {
     return <div className="text-sm text-gray-600 p-8">Forbidden.</div>;
   }
 
-  const createdTaskId = (create.data as any)?._id as string | undefined;
+  const createdTaskId = create.data?._id;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
@@ -130,16 +130,19 @@ export function CreateTaskPage() {
                 onClick={async () => {
                   setTemplateError(null);
                   try {
-                    const res = await apiFetch<{ task: any }>(`/templates/${templateId}/instantiate`, {
+                    const res = await apiFetch<{ task: { title: string; descriptionHtml?: string | null; description?: string | null; assignedTo?: string[]; priority?: string } }>(
+                      `/templates/${templateId}/instantiate`,
+                      {
                       method: 'POST',
                       token,
-                    });
+                      },
+                    );
                     const t = res.task;
                     form.setValue('title', t.title, { shouldValidate: true });
                     if (t.descriptionHtml) form.setValue('descriptionHtml', t.descriptionHtml, { shouldValidate: true });
                     else form.setValue('descriptionHtml', `<p>${String(t.description ?? '').replace(/</g, '&lt;')}</p>`, { shouldValidate: true });
                     form.setValue('assignedTo', t.assignedTo ?? [], { shouldValidate: true });
-                    form.setValue('priority', t.priority ?? 'MEDIUM', { shouldValidate: true });
+                    form.setValue('priority', (t.priority as FormValues['priority']) ?? 'MEDIUM', { shouldValidate: true });
                     setTemplateId('');
                   } catch {
                     setTemplateError('Failed to instantiate template.');

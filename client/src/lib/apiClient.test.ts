@@ -18,7 +18,7 @@ describe('apiFetch', () => {
           ok: false,
           status: 401,
           text: async () => JSON.stringify({ error: { message: 'Unauthorized' } }),
-        } as any;
+        } satisfies Partial<Response> as Response;
       }),
     );
 
@@ -33,7 +33,7 @@ describe('apiFetch', () => {
           ok: true,
           status: 200,
           text: async () => JSON.stringify({ ok: true }),
-        } as any;
+        } satisfies Partial<Response> as Response;
       }),
     );
 
