@@ -12,10 +12,12 @@ import { logger } from '@/config/logger.js';
 import { verifyTwilioConnected } from '@/config/twilio.js';
 import { errorMiddleware } from '@/middlewares/error.js';
 import { router } from '@/routes/index.js';
+import { initTaskWorker } from '@/workers/taskWorker.js';
 
 async function main() {
   await connectDb();
   await verifyTwilioConnected();
+  initTaskWorker();
 
   const app = express();
 
