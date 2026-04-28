@@ -4,8 +4,8 @@ import { templateController } from '@/controllers/templateController.js';
 import { requireAuth } from '@/middlewares/auth.js';
 import { requireRole } from '@/middlewares/rbac.js';
 import { validate } from '@/middlewares/validate.js';
-import { createTemplateSchema, instantiateTemplateSchema } from '@/schemas/template.schema.js';
 import { UserRole } from '@/models/User.js';
+import { createTemplateSchema, instantiateTemplateSchema } from '@/schemas/template.schema.js';
 
 export const templateRoutes = Router();
 

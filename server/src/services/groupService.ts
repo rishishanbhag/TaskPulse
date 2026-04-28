@@ -2,8 +2,8 @@ import mongoose from 'mongoose';
 
 import { GroupModel } from '@/models/Group.js';
 import { UserModel, UserRole } from '@/models/User.js';
-import type { AuthedUser } from '@/types/user.js';
 import { delByPattern } from '@/services/cache.js';
+import type { AuthedUser } from '@/types/user.js';
 
 const cachePatternOrgGroups = (orgId: string) => `tp:v1:org:${orgId}:groups:*`;
 
