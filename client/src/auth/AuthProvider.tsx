@@ -1,22 +1,23 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { apiFetch, HttpError } from '@/lib/apiClient';
+import { AuthContext, type AuthState } from '@/auth/AuthContext';
 import type { User, UserRole } from '@/hooks/types';
 
-type AuthState = {
-  token: string | null;
-  user: User | null;
-  bootstrapped: boolean;
-  setToken: (token: string | null) => void;
-  setSession: (token: string, user: User) => void;
-  logout: () => void;
-  refreshMe: () => Promise<void>;
-  hasRole: (...roles: UserRole[]) => boolean;
-};
-
-const AuthContext = createContext<AuthState | null>(null);
-
 const LS_TOKEN = 'taskpulse.token';
+
+async function refreshMeImpl(input: { token: string; logout: () => void; setUser: (u: User | null) => void }) {
+  try {
+    const res = await apiFetch<{ user: User }>('/auth/me', { method: 'GET', token: input.token });
+    input.setUser(res.user);
+  } catch (e) {
+    if (e instanceof HttpError && e.status === 401) {
+      input.logout();
+    } else {
+      throw e;
+    }
+  }
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setTokenState] = useState<string | null>(() => localStorage.getItem(LS_TOKEN));
@@ -40,16 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       return;
     }
-    try {
-      const res = await apiFetch<{ user: User }>('/auth/me', { method: 'GET', token });
-      setUser(res.user);
-    } catch (e) {
-      if (e instanceof HttpError && e.status === 401) {
-        logout();
-      } else {
-        throw e;
-      }
-    }
+    await refreshMeImpl({ token, logout, setUser });
   }, [logout, token]);
 
   const setSession = useCallback(
@@ -69,13 +61,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    refreshMe()
-      .catch(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        if (!token) {
+          if (!cancelled) setUser(null);
+          return;
+        }
+        await refreshMeImpl({
+          token,
+          logout: () => {
+            if (!cancelled) logout();
+          },
+          setUser: (u) => {
+            if (!cancelled) setUser(u);
+          },
+        });
+      } catch {
         // swallow bootstrap errors; UI can retry on-demand
-      })
-      .finally(() => setBootstrapped(true));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      } finally {
+        if (!cancelled) setBootstrapped(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [logout, token]);
 
   const value = useMemo<AuthState>(
     () => ({ token, user, bootstrapped, setToken, setSession, logout, refreshMe, hasRole }),
@@ -84,11 +97,3 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
-}
-
-export type { User };

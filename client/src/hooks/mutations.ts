@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { useAuth } from '@/auth/AuthProvider';
+import { useAuth } from '@/auth/useAuth';
 import { apiFetch } from '@/lib/apiClient';
-import type { Task } from '@/hooks/types';
+import type { Task, User } from '@/hooks/types';
 
 export function useCreateTask() {
   const { token } = useAuth();
@@ -111,15 +111,19 @@ export function useAssignmentRequestDelay() {
 }
 
 export function useLinkPhone() {
-  const { token, setSession, user } = useAuth();
+  const { token, setSession } = useAuth();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (phone: string) => {
-      const res = await apiFetch<{ user: typeof user }>('/auth/me/phone', { method: 'PATCH', token, body: { phone } });
+      const res = await apiFetch<{ user: User }>('/auth/me/phone', {
+        method: 'PATCH',
+        token,
+        body: { phone },
+      });
       return res.user;
     },
     onSuccess: (u) => {
-      if (u && token) setSession(token, u as any);
+      if (u && token) setSession(token, u);
       qc.invalidateQueries({ queryKey: ['me'] });
     },
   });
