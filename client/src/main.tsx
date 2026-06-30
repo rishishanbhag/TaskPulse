@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { Analytics } from '@vercel/analytics/react';
 
 import './index.css';
 import { AuthProvider } from '@/auth/AuthProvider';
@@ -16,6 +17,7 @@ createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <RouterProvider router={router} />
+          <Analytics />
         </AuthProvider>
       </QueryClientProvider>
     </GoogleOAuthProvider>
